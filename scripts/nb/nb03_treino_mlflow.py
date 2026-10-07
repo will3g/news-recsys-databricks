@@ -19,18 +19,18 @@ from scripts.nb._common import (
 
 def cells(root: Path) -> list[Any]:
     return [
-        header(
-            "03", "Treino com MLflow", "Popularidade × filtragem colaborativa × fatoração de matriz"
-        ),
+        header("03", "Treino com MLflow", "Popularidade × colaborativo × SVD × conteúdo × híbrido"),
         md(
             """
-            ## Três jeitos de recomendar
+            ## Cinco jeitos de recomendar
 
             | Modelo | Ideia | Pergunta que responde |
             |---|---|---|
             | **Popularidade** (baseline) | o que todo mundo está lendo agora | "o que está bombando?" |
             | **Item-item CF** | quem leu X também leu Y (cosseno entre colunas da matriz usuário×matéria) | "parecido com o que você leu" |
             | **Fatoração de matriz (SVD)** | usuários e matérias num espaço de *gostos latentes* | "gente com seu gosto leu..." |
+            | **Conteúdo (TF-IDF)** | perfil do usuário = títulos/editorias que leu; compara com cada matéria | "assunto parecido" — inclusive matéria nova |
+            | **Híbrido** | `α · CF + (1 − α) · conteúdo` | o melhor dos dois |
 
             O baseline é obrigatório: **se o modelo sofisticado não ganha da popularidade, ele não
             se paga.** Todos treinam no mesmo split e são medidos com as mesmas métricas.
@@ -47,6 +47,8 @@ def cells(root: Path) -> list[Any]:
             - **NDCG@10**: como o Recall, mas acertar no **topo** da lista vale mais. ← *métrica de promoção*
             - **HitRate@10**: acertou pelo menos um?
             - **Cobertura**: que fração do catálogo aparece em alguma recomendação (diversidade).
+            - **HitRate@10 em matérias frias**: entre quem leu alguma matéria *sem clique no treino*,
+              quantos a receberam? Mede o **cold start** — o problema central em notícia.
             """
         ),
         PIP_CELL,
@@ -59,6 +61,9 @@ def cells(root: Path) -> list[Any]:
         source_cell("src/news_recsys/models/popularity.py", root),
         source_cell("src/news_recsys/models/item_cf.py", root),
         source_cell("src/news_recsys/models/svd.py", root),
+        md("### `models/content.py` e `models/hybrid.py` — a resposta ao *cold start*"),
+        source_cell("src/news_recsys/models/content.py", root),
+        source_cell("src/news_recsys/models/hybrid.py", root),
         md("### `evaluation/split.py`, `evaluation/metrics.py` e `training.py`"),
         source_cell("src/news_recsys/evaluation/metrics.py", root),
         source_cell("src/news_recsys/training.py", root),
@@ -96,7 +101,7 @@ def cells(root: Path) -> list[Any]:
             """
             import matplotlib.pyplot as plt
 
-            ax = comparison[["ndcg_at_k", "recall_at_k", "hit_rate_at_k"]].sort_values("ndcg_at_k").plot.barh(figsize=(8, 3.8))
+            ax = comparison[["ndcg_at_k", "hit_rate_at_k", "cold_hit_rate_at_k"]].sort_values("ndcg_at_k").plot.barh(figsize=(9, 5))
             ax.set_title("Candidatos — avaliação offline (@10)")
             ax.set_xlabel("valor")
             plt.tight_layout()
@@ -153,12 +158,15 @@ def cells(root: Path) -> list[Any]:
         ),
         md(
             """
-            ### Dúvida comum: e a matéria que saiu há 5 minutos? (*cold start*)
+            ### Leitura do resultado: o *cold start* em números
 
-            A filtragem colaborativa só recomenda o que **já foi clicado** — uma matéria nova não
-            tem cliques, então não aparece. Em notícias isso é crítico. Soluções de mercado:
-            misturar com popularidade recente (nosso desempate), modelos de **conteúdo** (texto,
-            editoria) ou híbridos. Usuário novo, sem histórico, recebe a lista de popularidade.
+            - **CF e SVD acertam 0% das matérias frias**: só recomendam o que já foi clicado.
+            - **Conteúdo** acerta as frias (título e editoria existem desde o primeiro minuto),
+              mas perde o sinal fino de "quem leu X leu Y".
+            - **Híbrido** junta os dois. O **α** é um *trade-off*: α alto = mais CF (melhor em
+              matérias com histórico), α baixo = mais conteúdo (melhor em matérias novas). O MLflow
+              escolhe pelo NDCG; a coluna `cold_hit_rate_at_k` mostra o custo de cada escolha.
+            - Usuário novo (sem histórico) continua recebendo popularidade com bônus de recência.
             """
         ),
         md(
@@ -166,6 +174,7 @@ def cells(root: Path) -> list[Any]:
             ### O que percebemos?
 
             - O baseline perde feio — personalização **vale a pena** (com estes dados).
+            - O híbrido vence no geral **e** recomenda matérias novas: o melhor modelo é o que cobre o problema do negócio, não o mais sofisticado.
             - O MLflow guardou tudo: parâmetros, métricas, o artefato e de onde ele veio (*lineage*).
             - Registrar ≠ publicar: a versão nova espera o *quality gate*.
 

@@ -12,7 +12,7 @@
    │ Volume raw/catalog/*.json                                                                    │
    │   └► 01 bronze_articles (MERGE)                                                              │
    │        └► 02 silver_catalog_window · silver_users · silver_interactions (SINTÉTICO)          │
-   │             └► 03 treino: popularidade · item_cf · svd(16) · svd(32)  ── MLflow runs         │
+   │             └► 03 treino: popularidade · item_cf · svd · conteúdo · híbrido ── MLflow runs   │
    │                  └► vencedor re-treinado ─► Unity Catalog: news_recommender vN               │
    │                       └► 04 gate: NDCG@10(vN) > NDCG@10(@champion)? ─► alias @champion      │
    │                            └► 05 inferência batch (@champion) ─► gold_user_recommendations   │
@@ -48,7 +48,10 @@ prontos — que é justamente o que o Terraform costuma provisionar em empresas.
 6. **Inferência batch** + tabela gold: latência mínima no app, custo baixo, modelo versionado
    em cada linha (`model_version`).
 7. **Ingestão no GitHub Actions**: o Databricks Free Edition não tem internet de saída liberada.
-8. **App com fallback** para `sample_data`: a demo não depende do warehouse estar ligado.
+8. **Híbrido CF + conteúdo para o cold start**: CF/SVD têm 0% de acerto em matérias sem clique;
+   o termo de conteúdo (TF-IDF de título + editoria, com decaimento por recência) cobre as novas.
+   α=0,4 maximiza o NDCG e mantém ~20% de acerto nas frias (varredura α ∈ 0,2–0,6, 2 seeds).
+9. **App com fallback** para `sample_data`: a demo não depende do warehouse estar ligado.
 
 ## Tabelas (`workspace.<schema>`)
 

@@ -20,7 +20,7 @@ repositório no GitHub (aba Actions).
 1. "Todo portal tem 'recomendado para você'. Hoje construímos um — e, principalmente, o que mantém ele funcionando sozinho."
 2. "Dado, código, modelo e agenda no mesmo lugar, com o mesmo controle de acesso."
 3. "O GitHub busca o dado porque a Free Edition não tem internet: limitação vira desenho." · "Não temos cliques reais; simulamos — e só esta etapa mudaria em produção."
-4. "Se o modelo sofisticado não ganha da popularidade, ele não se paga." · "Abram Experiments: cada candidato é uma linha comparável."
+4. "Se o modelo sofisticado não ganha da popularidade, ele não se paga." · "Abram Experiments: cada candidato é uma linha comparável." · "CF não vê matéria nova — olhem a coluna 'fria' zerada; o híbrido resolve."
 5. "O app nunca usa 'a última versão'. Usa `@champion`. Rollback é mover um ponteiro."
 6. "Recomendação pronta antes do usuário chegar: o app só faz um SELECT."
 7. "Modelo bom hoje pode virar bolha amanhã: monitoramos diversidade, não só acurácia."
@@ -38,4 +38,4 @@ repositório no GitHub (aba Actions).
 1. Adicionar um candidato `svd(n_components=64)` em `training.DEFAULT_CANDIDATES` e ver se ele vira campeão.
 2. Mudar `noise` da simulação para 0.5: o que acontece com o NDCG de cada modelo? E com o PSI?
 3. Criar uma persona nova em `simulation.PERSONAS` e verificar no app.
-4. (Avançado) Implementar um recomendador por conteúdo (TF-IDF dos títulos) para o *cold start*.
+4. Mudar a métrica de promoção para `cold_hit_rate_at_k`: qual candidato vira campeão? Faz sentido para o negócio?

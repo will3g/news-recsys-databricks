@@ -110,6 +110,7 @@ with tab_model:
                 "recall_at_k",
                 "hit_rate_at_k",
                 "catalog_coverage",
+                "cold_hit_rate_at_k",
             ]
             if c in table
         ]

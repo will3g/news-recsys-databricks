@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from news_recsys.evaluation.metrics import evaluate_model
+from news_recsys.evaluation.metrics import cold_items_of, evaluate_model
 from news_recsys.evaluation.split import temporal_split
 from news_recsys.models import MODEL_REGISTRY
 from news_recsys.models.base import Recommender
@@ -20,6 +20,10 @@ DEFAULT_CANDIDATES: list[tuple[str, dict[str, Any]]] = [
     ("item_cf", {"n_neighbors": 50}),
     ("svd", {"n_components": 16}),
     ("svd", {"n_components": 32}),
+    ("conteudo", {"recency_half_life_h": 24.0}),
+    ("hibrido", {"alpha": 0.3}),
+    ("hibrido", {"alpha": 0.4}),
+    ("hibrido", {"alpha": 0.5}),
 ]
 
 
@@ -51,10 +55,11 @@ def train_candidates(
 ) -> list[CandidateResult]:
     """Treina e avalia cada candidato no MESMO split (comparação justa)."""
     train, test = temporal_split(interactions, test_fraction=test_fraction)
+    cold = cold_items_of(train, articles)
     results = []
     for name, params in candidates or DEFAULT_CANDIDATES:
         model = build_model(name, params).fit(train, articles)
-        metrics, _ = evaluate_model(model, test, k=k, catalog_size=len(articles))
+        metrics, _ = evaluate_model(model, test, k=k, catalog_size=len(articles), cold_items=cold)
         results.append(CandidateResult(name, params, metrics, model))
     return results
 

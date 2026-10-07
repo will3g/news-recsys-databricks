@@ -46,7 +46,7 @@ def cells(root: Path) -> list[Any]:
 
             pd.DataFrame(
                 {"desafiante (v" + str(version) + ")": candidate_metrics, "campeão atual": current or {}}
-            ).loc[["ndcg_at_k", "precision_at_k", "recall_at_k", "hit_rate_at_k", "catalog_coverage"]].round(4)
+            ).loc[["ndcg_at_k", "precision_at_k", "recall_at_k", "hit_rate_at_k", "catalog_coverage", "cold_hit_rate_at_k"]].round(4)
             """
         ),
         md("### Execução: a decisão"),
@@ -78,7 +78,7 @@ def cells(root: Path) -> list[Any]:
             children = mlflow.search_runs(filter_string=f"tags.mlflow.parentRunId = '{candidate.run_id}'")
             winner = client.get_run(candidate.run_id).data.params.get("winner")
             now = datetime.now(UTC).isoformat(timespec="seconds")
-            metric_names = ["ndcg_at_k", "precision_at_k", "recall_at_k", "hit_rate_at_k", "catalog_coverage"]
+            metric_names = ["ndcg_at_k", "precision_at_k", "recall_at_k", "hit_rate_at_k", "catalog_coverage", "cold_hit_rate_at_k"]
             rows = [
                 {
                     "evaluated_at": now,

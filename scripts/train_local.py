@@ -41,12 +41,19 @@ def main() -> None:
     print(f"{len(articles)} matérias · {len(users)} usuários sintéticos · {len(clicks)} cliques\n")
 
     results = train_candidates(clicks, articles, k=s.k, test_fraction=s.test_fraction)
-    header = ("candidato", "NDCG@10", "P@10", "R@10", "Hit@10", "cobert.")
-    print(f"{header[0]:32s}" + "".join(f"{h:>9s}" for h in header[1:]))
+    header = ("candidato", "NDCG@10", "P@10", "R@10", "Hit@10", "cobert.", "Hit@10 fria")
+    print(f"{header[0]:40s}" + "".join(f"{h:>12s}" for h in header[1:]))
     for r in results:
         m = r.metrics
-        cols = ("ndcg_at_k", "precision_at_k", "recall_at_k", "hit_rate_at_k", "catalog_coverage")
-        print(f"{r.label:32s}" + "".join(f"{m[c]:9.4f}" for c in cols))
+        cols = (
+            "ndcg_at_k",
+            "precision_at_k",
+            "recall_at_k",
+            "hit_rate_at_k",
+            "catalog_coverage",
+            "cold_hit_rate_at_k",
+        )
+        print(f"{r.label:40s}" + "".join(f"{m[c]:12.4f}" for c in cols))
     best = best_candidate(results, s.promotion_metric)
     print(f"\nvencedor ({s.promotion_metric}): {best.label}")
 

@@ -8,7 +8,16 @@ Um recomendador **personalizado** de notícias treinado, versionado e servido no
 
 - Matérias **reais**: sitemap de notícias do O Globo (só metadados; o app linka para o site).
 - Usuários e cliques **sintéticos**: 8 personas, reproduzíveis por `seed` (não há clickstream público).
-- 3 modelos comparados no MLflow: **popularidade** (baseline), **item-item CF** e **SVD**.
+- 5 famílias de modelo comparadas no MLflow: **popularidade** (baseline), **item-item CF**, **SVD**,
+  **conteúdo (TF-IDF)** e **híbrido** (CF + conteúdo), que resolve o *cold start* de matéria nova.
+
+  | Candidato (local, 07/10/2026) | NDCG@10 | HitRate@10 | HitRate@10 em matérias frias |
+  |---|---|---|---|
+  | **híbrido α=0,4 (campeão)** | **0,212** | 0,68 | 0,20 |
+  | conteúdo (TF-IDF) | 0,155 | 0,59 | 0,39 |
+  | item-item CF | 0,139 | 0,56 | 0,00 |
+  | SVD (16 fatores) | 0,125 | 0,49 | 0,00 |
+  | popularidade | 0,035 | 0,16 | 0,00 |
 - *Quality gate* champion/challenger → alias `@champion` no Unity Catalog → **inferência batch** → app.
 
 ```
@@ -39,7 +48,7 @@ src/news_recsys/        código de produção (testado, sem SDKs no import)
   ingestion/            sitemap.py, catalog.py
   features/sections.py  editoria a partir da URL
   simulation.py         personas e cliques sintéticos
-  models/               base.py, popularity.py, item_cf.py, svd.py
+  models/               base.py, popularity.py, item_cf.py, svd.py, content.py, hybrid.py
   evaluation/           split.py (temporal), metrics.py (P/R/NDCG/Hit@K)
   training.py           treina e compara candidatos
   registry.py           quality gate + alias @champion
@@ -92,5 +101,6 @@ Streamlit Community Cloud (app público).
 
 - **State do Terraform contém o token do Databricks em texto puro** → fica local e gitignored.
 - **PAT expira** → renovar em: secrets do GitHub (`make tf-apply`) e secrets do Streamlit.
+- **Cold start de usuário** (sem histórico) → popularidade com recência; de **matéria** → conteúdo/híbrido.
 - Os **cliques são sintéticos**: as métricas medem o quanto o modelo recupera o padrão simulado,
   não o comportamento real de leitores.

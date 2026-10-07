@@ -74,3 +74,35 @@ def test_unknown_articles_in_clicks_are_ignored(toy_articles, toy_clicks) -> Non
     model = SVDRecommender(n_components=2).fit(extra, toy_articles)
     assert "u9" not in model.user_ids
     assert np.isfinite(model.item_factors_).all()
+
+
+def _articles_with_new_item(toy_articles):
+    """Adiciona a6: matéria nova de economia, publicada depois de tudo e SEM cliques."""
+    new = toy_articles.iloc[[0]].copy()
+    new["article_id"] = "a6"
+    new["title"] = "Matéria nova de economia"
+    new["published_at"] = "2026-10-07T09:00:00-03:00"
+    return pd.concat([toy_articles, new], ignore_index=True)
+
+
+def test_content_recommends_cold_item(toy_articles, toy_clicks) -> None:
+    from news_recsys.models import ContentRecommender
+
+    arts = _articles_with_new_item(toy_articles)
+    cf_top = ItemCFRecommender().fit(toy_clicks, arts).recommend(["u1"], k=1)["article_id"][0]
+    content_top = ContentRecommender().fit(toy_clicks, arts).recommend(["u1"], k=1)["article_id"][0]
+    assert cf_top != "a6"  # CF não enxerga matéria sem clique
+    assert content_top == "a6"  # conteúdo enxerga: mesma editoria e mais recente
+
+
+def test_hybrid_alpha_extremes_and_validation(toy_articles, toy_clicks) -> None:
+    from news_recsys.models import HybridRecommender
+
+    arts = _articles_with_new_item(toy_articles)
+    only_content = HybridRecommender(alpha=0.0).fit(toy_clicks, arts)
+    assert only_content.recommend(["u1"], k=1)["article_id"][0] == "a6"
+    only_cf = HybridRecommender(alpha=1.0).fit(toy_clicks, arts)
+    assert only_cf.recommend(["u2"], k=1)["article_id"][0] == "a2"
+    assert only_cf.params()["alpha"] == 1.0
+    with pytest.raises(ValueError):
+        HybridRecommender(alpha=1.5)

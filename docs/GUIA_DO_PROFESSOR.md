@@ -129,15 +129,22 @@ suporte a Spark ML no serverless é limitado. Em escala, troca-se o `models/svd.
 **"Por que batch e não uma API?"** — Recomendação de home muda pouco em minutos; batch é barato
 e o app só lê uma tabela. Tempo real entra quando o contexto imediato importa.
 
-**"E matéria nova, sem cliques?"** — *Cold start*: CF não recomenda. Usamos popularidade como
-desempate; o caminho é um modelo híbrido com conteúdo (texto/editoria).
+**"E matéria nova, sem cliques?"** — *Cold start*: CF e SVD não recomendam (0% na métrica
+`cold_hit_rate_at_k`). O modelo de **conteúdo** usa título + editoria, que existem desde o
+primeiro minuto; o **híbrido** (`α·CF + (1−α)·conteúdo`) junta os dois e é o campeão.
+α maior favorece matérias com histórico, α menor favorece as novas: é uma decisão de negócio
+medida no MLflow. Usuário novo, sem histórico, recebe popularidade com recência.
 
 **"Por que o Terraform não cria o Databricks?"** — Na Free Edition não há API de conta;
 workspace e catálogo já vêm prontos. O IaC do projeto no Databricks é o Asset Bundle. O
 Terraform gerencia o que faltava: o GitHub (repo, secrets, proteção da branch).
 
-**"Precision@10 de 0,07 não é baixo?"** — Em recsys é comum: o usuário lê poucas das centenas
+**"Precision@10 de 0,11 não é baixo?"** — Em recsys é comum: o usuário lê poucas das centenas
 de matérias. Compare sempre com o baseline (0,017) — o ganho relativo é o que importa.
+
+**"Por que o híbrido com α=0,4 e não o de conteúdo puro, que acerta mais matérias frias?"** —
+Porque o objetivo de promoção é o NDCG geral; o conteúdo puro perde o sinal "quem leu X leu Y".
+Se o negócio priorizar notícia fresca, troque a métrica de promoção ou baixe o α.
 
 **"Isso é LGPD-safe?"** — Usuários são sintéticos; em produção, clickstream é dado pessoal
 (consentimento, minimização, retenção). Boa discussão para a turma.

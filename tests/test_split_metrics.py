@@ -46,3 +46,25 @@ def test_evaluate_recommendations_and_coverage() -> None:
     m = evaluate_recommendations(recs, test, k=2, catalog_size=10)
     assert m["hit_rate_at_k"] == 0.5 and m["precision_at_k"] == 0.25
     assert m["catalog_coverage"] == 0.3 and m["n_users_eval"] == 2
+
+
+def test_cold_item_metrics() -> None:
+    from news_recsys.evaluation.metrics import cold_items_of
+
+    train = pd.DataFrame({"user_id": ["u1"], "article_id": ["a"]})
+    articles = pd.DataFrame({"article_id": ["a", "b", "c"]})
+    cold = cold_items_of(train, articles)
+    assert cold == {"b", "c"}
+    recs = pd.DataFrame(
+        {
+            "user_id": ["u1", "u1", "u2", "u2"],
+            "rank": [1, 2, 1, 2],
+            "article_id": ["b", "a", "a", "a"],
+            "score": [1, 1, 1, 1],
+        }
+    )
+    test = pd.DataFrame({"user_id": ["u1", "u2"], "article_id": ["b", "c"]})
+    m = evaluate_recommendations(recs, test, k=2, catalog_size=3, cold_items=cold)
+    assert m["cold_hit_rate_at_k"] == 0.5  # u1 acertou a fria "b"; u2 não recebeu "c"
+    assert m["cold_share_of_recs"] == 0.25
+    assert "cold_hit_rate_at_k" not in evaluate_recommendations(recs, test, k=2, catalog_size=3)
