@@ -1,0 +1,39 @@
+# Databricks Asset Bundle — "Recomendação de notícias com MLOps" (aula FIAP Fase 5)
+#   make bundle-deploy            -> target dev (seu, com prefixo [dev <usuário>])
+#   GitHub Actions (cd.yml)       -> target prod
+bundle:
+  name: news-recsys-databricks
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Catálogo do Unity Catalog
+    default: workspace
+  schema:
+    description: Schema das tabelas bronze/silver/gold e do Volume raw
+    default: news_recsys_dev
+  n_users:
+    description: Quantidade de usuários sintéticos
+    default: "300"
+  seed:
+    description: Semente da simulação (reprodutibilidade)
+    default: "42"
+
+# Free Edition: só serverless — nenhum job_cluster/new_cluster no bundle.
+targets:
+  dev:
+    mode: development     # prefixa o job com [dev <usuário>] e pausa o schedule
+    default: true
+    variables:
+      schema: news_recsys_dev
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/prod
+    run_as:
+      user_name: ${workspace.current_user.userName}
+    variables:
+      schema: news_recsys

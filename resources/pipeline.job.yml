@@ -1,0 +1,73 @@
+# Pipeline de MLOps: bronze -> silver (eventos) -> treino -> gate/registro -> inferência batch -> monitoramento
+resources:
+  jobs:
+    recsys_pipeline:
+      name: news-recsys-pipeline
+      description: "Treino diário do recomendador de notícias (aula FIAP Pós-Tech — Fase 5 MLOps)"
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:          # espelha requirements-databricks.txt
+              - mlflow[databricks]>=3.1.0
+              - databricks-sdk>=0.40.0
+              - pydantic-settings>=2.6.0
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+        - name: n_users
+          default: ${var.n_users}
+        - name: seed
+          default: ${var.seed}
+
+      tasks:
+        - task_key: bronze_ingestao
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/01_ingestao_bronze.ipynb
+
+        - task_key: silver_eventos
+          depends_on: [{ task_key: bronze_ingestao }]
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/02_eventos_sinteticos.ipynb
+
+        - task_key: treino
+          depends_on: [{ task_key: silver_eventos }]
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/03_treino_mlflow.ipynb
+
+        - task_key: avaliacao_promocao
+          depends_on: [{ task_key: treino }]
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/04_avaliacao_registro.ipynb
+
+        - task_key: inferencia_batch
+          depends_on: [{ task_key: avaliacao_promocao }]
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/05_inferencia_batch.ipynb
+
+        - task_key: monitoramento
+          depends_on: [{ task_key: inferencia_batch }]
+          environment_key: default
+          notebook_task:
+            notebook_path: ../notebooks/06_monitoramento.ipynb
+
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"   # 06:30 BRT, depois do ingest do GitHub Actions
+        timezone_id: America/Sao_Paulo
+        pause_status: PAUSED                     # o gatilho diário oficial é o ingest.yml
+
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
