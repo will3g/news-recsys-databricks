@@ -1,0 +1,8 @@
+# Copie para terraform.tfvars (gitignored). O TOKEN não vai aqui:
+#   export TF_VAR_databricks_token="dapi..."
+github_owner    = "will3g"
+repository_name = "news-recsys-databricks"
+databricks_host = "https://dbc-xxxxxxxx-xxxx.cloud.databricks.com"
+
+# Passo 2 (depois do primeiro push):
+# enable_branch_protection = true
