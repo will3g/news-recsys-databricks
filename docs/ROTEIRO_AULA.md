@@ -1,6 +1,6 @@
 # Roteiro da aula — Recomendação de notícias com MLOps no Databricks
 
-**Duração:** ~120 min. **Material:** slides, notebooks exportados (com outputs), app Streamlit,
+**Duração:** ~120 min. **Material:** [slides](https://claude.ai/artifact/8P9wuUu92SM3jFR2dNNuKt) (privado; compartilhe pelo menu Share), notebooks exportados (com outputs), app Streamlit,
 repositório no GitHub (aba Actions).
 
 | Bloco | Tempo | Material | Mensagem central |
