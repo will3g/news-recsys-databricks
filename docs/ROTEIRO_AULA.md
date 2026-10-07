@@ -1,19 +1,19 @@
 # Roteiro da aula — Recomendação de notícias com MLOps no Databricks
 
-**Duração:** ~120 min. **Material:** [slides](https://claude.ai/artifact/8P9wuUu92SM3jFR2dNNuKt) (privado; compartilhe pelo menu Share), notebooks exportados (com outputs), app Streamlit,
+**Duração:** ~120 min. **Material:** diagramas de [`ARQUITETURA_MERMAID.md`](ARQUITETURA_MERMAID.md) (fio condutor), notebooks exportados (com outputs), app Streamlit,
 repositório no GitHub (aba Actions).
 
 | Bloco | Tempo | Material | Mensagem central |
 |---|---|---|---|
-| 1. Problema e arquitetura | 15 min | slides 1–6 | recsys é dado + modelo + operação |
+| 1. Problema e arquitetura | 15 min | diagrama 1 (visão geral) | recsys é dado + modelo + operação |
 | 2. Tour Databricks | 10 min | notebook 00 + UI | onde cada coisa mora |
 | 3. Dados: bronze e eventos sintéticos | 15 min | notebooks 01–02 | ingestão desacoplada, `MERGE`, personas |
-| 4. Treino e comparação | 20 min | notebook 03 + Experiments | baseline primeiro; MLflow guarda tudo |
+| 4. Treino e comparação | 20 min | diagrama 2 + notebook 03 + Experiments | baseline primeiro; MLflow guarda tudo |
 | 5. Gate e registro | 15 min | notebook 04 + Catalog | `@champion`, rollback por alias |
 | 6. Inferência e app | 15 min | notebook 05 + Streamlit | batch → tabela → app |
 | 7. Monitoramento | 10 min | notebook 06 | cobertura e drift (PSI) |
-| 8. CI/CD e Terraform | 15 min | GitHub Actions + `infra/github` + slides | quem gerencia o quê |
-| 9. Fechamento | 5 min | slide final | o ciclo completo + próximos passos |
+| 8. CI/CD e Terraform | 15 min | diagramas 3 e 4 + GitHub Actions + `infra/github` | quem gerencia o quê |
+| 9. Fechamento | 5 min | diagrama 1 de novo | o ciclo completo + próximos passos |
 
 ## Falas-chave por bloco
 

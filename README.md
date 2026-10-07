@@ -60,7 +60,7 @@ app/                    streamlit_app.py, data_access.py, sample_data/
 databricks.yml, resources/   Asset Bundle (job de 6 tasks, targets dev/prod)
 .github/workflows/      ci.yml, cd.yml, ingest.yml
 infra/github/           Terraform do repositório
-docs/                   GUIA_DO_PROFESSOR.md, ROTEIRO_AULA.md, ARCHITECTURE.md
+docs/                   GUIA_DO_PROFESSOR.md, ROTEIRO_AULA.md, ARCHITECTURE.md, ARQUITETURA_MERMAID.md
 ```
 
 ## Rodar localmente (sem Databricks)
