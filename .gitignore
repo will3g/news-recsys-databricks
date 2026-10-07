@@ -16,3 +16,4 @@ infra/**/*.tfstate.*
 infra/**/terraform.tfvars
 infra/**/tfplan
 .DS_Store
+.playwright-mcp/
