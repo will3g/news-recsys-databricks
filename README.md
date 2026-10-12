@@ -99,6 +99,10 @@ make gh-secrets   # DATABRICKS_HOST/TOKEN (do ~/.databrickscfg) + o PAT (pede pa
 make gh-push      # envia main e develop: a esteira assume
 ```
 
+Para **recriar do zero** (ensaios): `make gh-destroy` (apaga o repositório e o state do Terraform)
+→ `make gh-repo` → no PAT, *Edit* → *Repository access* → selecione o repositório novo →
+`make gh-secrets` → `make gh-push`.
+
 **Streamlit Cloud (2 apps, pela UI):** share.streamlit.io → *Create app* → este repositório,
 `app/streamlit_app.py`:
 

@@ -11,7 +11,7 @@ TF_ENV    = GITHUB_TOKEN=$${GITHUB_TOKEN:-$$(gh auth token)} TF_VAR_github_owner
 TF_STATE  = dbfs:/Volumes/workspace/default/tfstate/github.tfstate
 
 .PHONY: help doctor gh-login db-install db-configure install setup sitemap deploy run db-destroy lint app \
-	gh-repo gh-secrets gh-push tf-plan tf-apply
+	gh-repo gh-secrets gh-push gh-destroy tf-plan tf-apply
 
 help: ## Mostra os comandos
 	@grep -E '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -19,6 +19,9 @@ help: ## Mostra os comandos
 # ---- Preparação ---------------------------------------------------------------
 doctor: ## Confere as ferramentas instaladas (macOS, Linux, Windows/WSL)
 	@sh scripts/doctor.sh jq terraform gh
+
+gh-login: ## Dá ao gh permissão para enviar os workflows e apagar o repositório (gh-destroy)
+	gh auth refresh -h github.com -s workflow,delete_repo
 
 db-install: ## Instala a Databricks CLI (script oficial)
 	curl -fsSL $(DATABRICKS_INSTALL_URL) | sh
@@ -74,6 +77,12 @@ gh-secrets: ## 2) Secrets do Actions: Databricks (do ~/.databrickscfg) + PAT do 
 
 gh-push: ## 3) Envia main e develop: a esteira assume (infra, Databricks, Streamlit)
 	git push -u origin main develop
+
+gh-destroy: ## Apaga o repositório no GitHub e o state do Terraform (para recriar do zero)
+	@printf "Apagar o repositório $(GH_REPO) e o state do Terraform? [s/N] " && read r && [ "$$r" = s ]
+	-gh repo delete $(GH_REPO) --yes
+	-databricks fs rm $(TF_STATE)
+	-git remote remove origin
 
 # ---- Terraform (roda no cd.yml; local também funciona) -------------------------------
 tf-plan: ## terraform plan (baixa o state do Volume workspace.default.tfstate)
