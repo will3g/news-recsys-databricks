@@ -1,6 +1,6 @@
 # GitHub como código: environments (qa e prod) e proteção da develop e da main.
-# O repositório é criado à mão (make gh-repo) e os secrets também (make gh-secrets):
-# a esteira não pode criar as próprias credenciais.
+# Roda no cd.yml (job infra). O repositório e os secrets são criados uma vez à mão
+# (make gh-repo / gh-secrets): a esteira não pode criar as próprias credenciais.
 
 data "github_repository" "this" {
   name = var.repository_name
@@ -11,6 +11,15 @@ resource "github_repository_environment" "env" {
   for_each    = toset(["qa", "prod"])
   repository  = data.github_repository.this.name
   environment = each.key
+}
+
+# URL da app do Streamlit Cloud de cada ambiente (o cd.yml confere se ela responde)
+resource "github_actions_environment_variable" "streamlit_url" {
+  for_each      = github_repository_environment.env
+  repository    = data.github_repository.this.name
+  environment   = each.value.environment
+  variable_name = "STREAMLIT_URL"
+  value         = "https://${var.github_owner}-news-recsys-${each.key}.streamlit.app"
 }
 
 # develop e main só recebem PR com CI verde

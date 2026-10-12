@@ -86,7 +86,7 @@ flowchart LR
 | # | O que acontece |
 |---|---|
 | — | **dev**: cada pessoa testa no seu ambiente isolado, pelo `make` |
-| 1–2 | PR para `develop` roda o CI; o merge publica e roda o Job em **QA** |
+| 1–2 | PR para `develop` roda o CI (`test` + plano do Terraform); o merge roda o CD: `infra` → `databricks` (Job em **QA**) → `streamlit` |
 | 3–4 | QA ok → PR `develop` → `main`; o merge publica e roda o Job em **PROD** |
 | 5 | o ingest diário só alimenta PROD |
 
@@ -97,8 +97,8 @@ e pasta. Em empresa, cada ambiente costuma ter o seu workspace.
 
 ```mermaid
 flowchart LR
-    MAN["make gh-repo / gh-secrets<br/>(manual, 1x)"] -- "0 · repo + secrets" --> GA["GitHub Actions"]
-    GA -- "1 · infra.yml" --> TF["Terraform (state no HCP)<br/>environments qa/prod · proteção das branches"]
+    MAN["make gh-repo / gh-secrets<br/>(manual, 1x)"] -- "0 · repo + secrets" --> GA["GitHub Actions<br/>ci.yml · cd.yml"]
+    GA -- "1 · job infra" --> TF["Terraform (state no Volume)<br/>environments qa/prod · URLs das apps · proteção das branches"]
     GA -- "2 · bundle deploy / run" --> DAB["Asset Bundle<br/>Job de 3 tasks"]
     DAB -- "3 · treino" --> ML["MLflow + Unity Catalog<br/>versões e @champion"]
     ML -- "4 · tabela gold" --> ST["Streamlit Cloud<br/>2 apps: develop e main<br/>(configurado pela UI)"]
@@ -118,6 +118,6 @@ flowchart LR
 7. **dev / QA / PROD por schema:** o mesmo código, o `TARGET` escolhe o ambiente; QA roda o Job
    inteiro antes de PROD (teste de ponta a ponta).
 8. **Bootstrap manual, resto pela esteira:** repositório e secrets são criados uma vez pelo
-   `make` (a esteira não cria as próprias credenciais); o Terraform roda no `infra.yml` com state no
-   HCP Terraform, sem tokens no state.
+   `make` (a esteira não cria as próprias credenciais); o Terraform roda no job `infra` do `cd.yml`
+   com o state num Volume do Databricks, sem tokens no state.
 9. **Terraform só para o GitHub:** na Free Edition o workspace já vem pronto; o Job é do Asset Bundle.

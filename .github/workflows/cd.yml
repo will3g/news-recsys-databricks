@@ -1,6 +1,7 @@
 # CD: merge na develop → QA · merge na main → PROD.
-# Em cada ambiente: cria schema/Volume (se faltar), publica o Job e roda o pipeline inteiro.
-# (Cada app do Streamlit Cloud se atualiza sozinho a partir da sua branch.)
+#   infra      → Terraform do GitHub (environments, URLs das apps, proteção das branches)
+#   databricks → cria schema/Volume, publica o Job e roda o pipeline no ambiente
+#   streamlit  → a app do ambiente se atualiza sozinha pela branch; aqui conferimos se responde
 name: cd
 
 on:
@@ -9,15 +10,44 @@ on:
 
 concurrency: cd-${{ github.ref_name }}   # um deploy por vez em cada ambiente
 
+env:
+  TARGET: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
 jobs:
-  deploy:
+  infra:
+    runs-on: ubuntu-latest
+    concurrency: infra                   # QA e PROD não mexem no state ao mesmo tempo
+    env:
+      GITHUB_TOKEN: ${{ secrets.TF_GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_wrapper: false }
+      - uses: databricks/setup-cli@main
+      - run: make tf-plan tf-apply
+
+  databricks:
+    needs: infra
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
-    env:
-      TARGET: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@main
       - run: make setup deploy run TARGET=$TARGET
+
+  streamlit:
+    needs: databricks
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
+    steps:
+      - name: App no ar?
+        run: |
+          echo "O Streamlit Cloud atualiza a app sozinho a partir da branch $GITHUB_REF_NAME."
+          if curl -sfL --max-time 90 "${{ vars.STREAMLIT_URL }}" -o /dev/null; then
+            echo "App respondendo: ${{ vars.STREAMLIT_URL }}"
+          else
+            echo "::warning::App não respondeu: ${{ vars.STREAMLIT_URL }} (já foi criada no Streamlit Cloud?)"
+          fi

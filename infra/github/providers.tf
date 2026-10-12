@@ -6,16 +6,11 @@ terraform {
       version = "~> 6.0"
     }
   }
-  # State no HCP Terraform (gratuito): o runner do GitHub Actions é descartável.
-  # A organização vem de TF_CLOUD_ORGANIZATION (Makefile e infra.yml já definem).
-  cloud {
-    workspaces {
-      name = "news-recsys-github"
-    }
-  }
+  # State local (terraform.tfstate, gitignored). O `make tf-plan` baixa a cópia guardada no
+  # Volume workspace.default.tfstate e o `make tf-apply` devolve: o runner do Actions é descartável.
 }
 
-# Autenticação: GITHUB_TOKEN = PAT com admin do repositório (secret TF_GITHUB_TOKEN no Actions)
+# Autenticação: GITHUB_TOKEN (no Actions: secret TF_GITHUB_TOKEN; local: gh auth token)
 provider "github" {
   owner = var.github_owner
 }

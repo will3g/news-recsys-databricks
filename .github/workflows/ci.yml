@@ -1,16 +1,18 @@
-# CI: todo PR para develop ou main passa pelo lint dos notebooks/app e pela validação do bundle.
+# CI: todo PR para develop ou main roda os testes e mostra o plano do Terraform.
+# A proteção das branches exige o job "test" verde para liberar o merge.
 name: ci
 
 on:
   pull_request:
     branches: [develop, main]
 
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
 jobs:
-  test:                      # nome usado pela proteção das branches (infra/github)
+  test:
     runs-on: ubuntu-latest
-    env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - run: pip install ruff nbformat
@@ -18,7 +20,19 @@ jobs:
         run: ruff check notebooks app
       - name: Notebooks válidos
         run: python -c "import glob, nbformat; [nbformat.validate(nbformat.read(f, 4)) for f in glob.glob('notebooks/*.ipynb')]"
-
       - uses: databricks/setup-cli@main
       - name: Bundle válido (qa e prod)
         run: databricks bundle validate -t qa && databricks bundle validate -t prod
+
+  infra-plan:                # o que o merge vai mudar no GitHub (sem aplicar)
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.TF_GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_wrapper: false }
+      - uses: databricks/setup-cli@main
+      - run: make tf-plan
