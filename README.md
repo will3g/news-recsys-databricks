@@ -63,6 +63,34 @@ infra/github/           Terraform do repositório
 docs/                   GUIA_DO_PROFESSOR.md, ROTEIRO_AULA.md, ARCHITECTURE.md, ARQUITETURA_MERMAID.md
 ```
 
+## Instalação (macOS, Linux e Windows)
+
+O mesmo caminho para os três sistemas: **terminal + `make`**. No Windows, use o **WSL2** (a
+própria Databricks recomenda) — dentro dele tudo funciona igual ao Linux.
+
+| Sistema | Antes de começar |
+|---|---|
+| **macOS** | `xcode-select --install` (traz `make`, `git`, `curl`) |
+| **Linux (Ubuntu/Debian)** | `sudo apt install -y python3 python3-venv make curl unzip git jq` |
+| **Windows** | PowerShell **como administrador**: `wsl --install -d Ubuntu-24.04` → reinicie → abra o *Ubuntu* e siga a linha do Linux. Clone o projeto **dentro** do WSL (`~/`), não em `/mnt/c/`. |
+
+Depois, em qualquer sistema:
+
+```bash
+make doctor        # confere python 3.12+, make, curl, unzip, git, databricks (+ jq, terraform, gh) e diz como instalar o que faltar
+make db-install    # Databricks CLI pelo script oficial (o mesmo que o GitHub Actions usa)
+make install       # venv + dependências
+```
+
+`make db-install` executa
+`curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh`. Para
+ler o script antes de rodar: `curl -fsSL <url> | less`. Se aparecer erro de permissão em
+`/usr/local/bin`, rode `sudo make db-install`. Se a CLI já estiver instalada (por exemplo via
+Homebrew), o target só mostra a versão.
+
+> **Sem WSL no Windows?** Instale a CLI com `winget install Databricks.DatabricksCLI` e rode os
+> comandos manualmente — cada target do `Makefile` é um comando curto, legível no próprio arquivo.
+
 ## Rodar localmente (sem Databricks)
 
 ```bash

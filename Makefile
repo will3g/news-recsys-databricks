@@ -1,8 +1,9 @@
-.PHONY: help install test lint format fetch-sitemap train-local app build-notebooks validate-notebooks \
+.PHONY: help doctor install test lint format fetch-sitemap train-local app build-notebooks validate-notebooks \
         db-install db-configure db-check db-upload-catalog bundle-validate bundle-deploy bundle-run \
         bundle-deploy-prod export-notebooks tf-init tf-plan tf-apply tf-output clean
 
-PYTHON  ?= python3.12
+# Python 3.12+: tenta python3.12 e cai para python3 (Linux/WSL costumam ter só python3)
+PYTHON  ?= $(shell command -v python3.12 2>/dev/null || command -v python3 2>/dev/null)
 VENV    ?= .venv
 ACTIVATE = . $(VENV)/bin/activate
 
@@ -19,6 +20,8 @@ help: ## Mostra este help
 
 # ----- Local ---------------------------------------------------------------------
 install: ## Cria venv e instala dependências (core + dev)
+	@test -n "$(PYTHON)" || { echo "Python não encontrado — rode: make doctor"; exit 1; }
+	@$(PYTHON) -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else "Python " + sys.version.split()[0] + " encontrado; o projeto precisa de 3.12+ (make doctor)")'
 	$(PYTHON) -m venv $(VENV)
 	$(ACTIVATE) && pip install --upgrade pip && pip install -e ".[dev]"
 
@@ -47,8 +50,20 @@ validate-notebooks: ## Valida os .ipynb e conta outputs
 	$(ACTIVATE) && python -m scripts.validate_notebooks
 
 # ----- Databricks ------------------------------------------------------------------
-db-install: ## Instala a Databricks CLI (Homebrew)
-	brew tap databricks/tap && brew trust databricks/tap && brew install databricks
+DATABRICKS_INSTALL_URL = https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh
+
+doctor: ## Verifica as ferramentas (macOS, Linux, Windows/WSL) e mostra como instalar o que falta
+	@sh scripts/doctor.sh jq terraform gh
+
+db-install: ## Instala a Databricks CLI — script oficial, igual em macOS, Linux e Windows (WSL)
+	@if command -v databricks >/dev/null 2>&1; then \
+		echo "Databricks CLI já instalada: $$(databricks --version)"; \
+	else \
+		echo "Instalando com o script oficial: $(DATABRICKS_INSTALL_URL)"; \
+		curl -fsSL $(DATABRICKS_INSTALL_URL) | sh || { \
+			echo "Falhou. Se o erro for permissão em /usr/local/bin, rode: sudo make db-install"; exit 1; }; \
+		databricks --version; \
+	fi
 
 db-configure: ## Configura profile com PAT (interativo: host + token)
 	databricks configure --token --profile $(PROFILE)

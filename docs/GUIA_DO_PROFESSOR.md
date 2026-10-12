@@ -58,8 +58,9 @@ Tables, Feature Store, Model Serving em tempo real, Lakehouse Monitoring, govern
    *Generate new token* (comentário `aula-fiap`, validade 90 dias). Copie o `dapi...`.
 3. **Terminal**, na pasta do projeto:
    ```bash
+   make doctor                  # confere as ferramentas (macOS, Linux ou Windows/WSL)
    make install                 # ambiente Python local
-   make db-install              # CLI do Databricks (se não tiver)
+   make db-install              # CLI do Databricks (script oficial; não faz nada se já existir)
    make db-configure            # cole a URL do workspace e o token
    make db-check                # deve mostrar seu e-mail e o SQL warehouse
    make bundle-validate
@@ -76,6 +77,13 @@ Tables, Feature Store, Model Serving em tempo real, Lakehouse Monitoring, govern
    `app/.streamlit/secrets.toml`, preencha (schema `news_recsys_dev` para testar) e `make app`.
 8. **GitHub + Streamlit Cloud:** siga o README (Terraform → push → CI/CD → Streamlit Cloud com
    `schema = "news_recsys"`, que é o target `prod`).
+
+### Alunos com Windows
+
+Peça na aula anterior (ou por e-mail) para instalarem o **WSL2 com Ubuntu** antes:
+`wsl --install -d Ubuntu-24.04` no PowerShell como administrador. É a causa nº 1 de aluno
+travado no primeiro dia. Dentro do WSL, `make doctor` mostra exatamente o que falta. Quem não
+puder usar WSL: `winget install Databricks.DatabricksCLI` e comandos manuais (README).
 
 ## 5. Checklist do ensaio (véspera, 20 min)
 
@@ -105,6 +113,9 @@ Tables, Feature Store, Model Serving em tempo real, Lakehouse Monitoring, govern
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | `Error: default auth: cannot configure default credentials` | CLI sem token | `make db-configure` |
+| `make: command not found` (Windows) | rodando no PowerShell/CMD | abrir o terminal do Ubuntu (WSL) |
+| `Target path ... already exists` na instalação da CLI | CLI já instalada em outro caminho | `databricks --version`; se funcionar, pode seguir |
+| `/usr/local/bin is not writable` | instalação da CLI sem permissão | `sudo make db-install` |
 | `401/403` no CLI, Actions ou app | PAT expirou | gerar novo token; atualizar `~/.databrickscfg`, `TF_VAR_databricks_token` + `make tf-apply`, secrets do Streamlit |
 | Notebook: `src/ não encontrado` | notebook aberto fora da pasta do bundle | abrir pelo caminho `.bundle/.../files/notebooks` |
 | `TABLE_OR_VIEW_NOT_FOUND silver_*` | notebooks fora de ordem | rodar 01 → 02 antes do 03 |

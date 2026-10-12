@@ -23,7 +23,7 @@ flowchart TB
     end
 
     subgraph DBX["Databricks Free Edition"]
-        VOL[("Volume raw")]
+        VOL[("Volume raw/catalog")]
         subgraph JOB["Job: 6 tasks (Asset Bundle)"]
             direction TB
             T1["01 bronze<br/>MERGE matérias"]
