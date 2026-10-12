@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 st.set_page_config(page_title="Recomendação de notícias", page_icon="📰", layout="wide")
 AMOSTRA = Path(__file__).parent / "sample_data"
@@ -15,6 +16,16 @@ AMOSTRA = Path(__file__).parent / "sample_data"
 
 def texto(titulo: str) -> str:
     return titulo.replace("$", r"\$")  # "R$ 10" não pode virar fórmula no Markdown
+
+
+def cards(materias: pd.DataFrame) -> None:
+    for linha in range(0, len(materias), 3):
+        for coluna, m in zip(st.columns(3), materias.iloc[linha : linha + 3].itertuples()):
+            with coluna, st.container(border=True):
+                if m.image_url:
+                    st.image(m.image_url, width="stretch")
+                st.markdown(f"**[{texto(m.title)}]({m.url})**")
+                st.caption(m.section)
 
 
 @st.cache_data(ttl=600)
@@ -42,11 +53,14 @@ historico = carregar(
     "historico",
 )
 metricas = carregar(f"SELECT * FROM {S}.model_metrics", "model_metrics")
+materias = carregar(
+    f"SELECT url, title, section, image_url, published_at FROM {S}.bronze_articles", "bronze_articles"
+)
 
 st.title("📰 Recomendação de notícias")
 st.caption("Matérias reais do O Globo · leitores e cliques sintéticos · modelo treinado no Databricks")
 
-aba_recs, aba_modelo = st.tabs(["Recomendações", "Modelo"])
+aba_recs, aba_perfil, aba_modelo = st.tabs(["Recomendações", "Monte seu perfil", "Modelo"])
 
 with aba_recs:
     rotulos = {u.user_id: f"{u.user_id} · {u.persona}" for u in usuarios.itertuples()}
@@ -64,13 +78,20 @@ with aba_recs:
         st.subheader("Recomendado")
         top = recs[recs["user_id"] == usuario].sort_values("rank")
         st.caption(f"modelo @champion versão {top['model_version'].iloc[0]}")
-        for linha in range(0, len(top), 3):
-            for coluna, m in zip(st.columns(3), top.iloc[linha : linha + 3].itertuples()):
-                with coluna, st.container(border=True):
-                    if m.image_url:
-                        st.image(m.image_url, width="stretch")
-                    st.markdown(f"**[{texto(m.title)}]({m.url})**")
-                    st.caption(f"#{m.rank} · {m.section}")
+        cards(top)
+
+with aba_perfil:
+    st.caption("Leitor novo (sem cliques): recomendação calculada na hora pelo conteúdo + recência, "
+               "como a parte de conteúdo do modelo híbrido.")
+    materias = materias.sort_values("published_at", ascending=False).reset_index(drop=True)
+    lidas = st.multiselect("Matérias que você leu", materias.index, format_func=materias["title"].get)
+    if lidas:
+        T = TfidfVectorizer().fit_transform(materias["title"] + " " + materias["section"])
+        publicada = pd.to_datetime(materias["published_at"], utc=True, format="mixed")
+        idade_h = (publicada.max() - publicada).dt.total_seconds().to_numpy() / 3600
+        score = (T @ T[lidas].mean(axis=0).T).A1 * 0.5 ** (idade_h / 24)  # parecida × recente
+        score[lidas] = 0  # não recomenda o que já leu
+        cards(materias.iloc[score.argsort()[::-1][:9]])
 
 with aba_modelo:
     st.subheader("Treinos registrados (tabela model_metrics)")

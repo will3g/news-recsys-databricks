@@ -1,7 +1,11 @@
-SCHEMA  ?= news_recsys_dev
+# Ambiente: dev (padrão, isolado) | qa | prod  →  ex.: make deploy TARGET=qa
+TARGET  ?= dev
+SCHEMA   = news_recsys_$(TARGET)
 VOLUME   = /Volumes/workspace/$(SCHEMA)/raw
 SITEMAP  = https://oglobo.globo.com/sitemap/oglobo/news.xml
 DATABRICKS_INSTALL_URL = https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh
+
+.PHONY: help doctor gh-login db-install db-configure install setup sitemap deploy run db-destroy lint app tf-init tf-plan tf-apply
 
 help: ## Mostra os comandos
 	@grep -E '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -9,6 +13,9 @@ help: ## Mostra os comandos
 # ---- Preparação ---------------------------------------------------------------
 doctor: ## Confere as ferramentas instaladas (macOS, Linux, Windows/WSL)
 	@sh scripts/doctor.sh jq terraform gh
+
+gh-login: ## Dá ao gh permissão para enviar os workflows (.github/workflows)
+	gh auth refresh -h github.com -s workflow
 
 db-install: ## Instala a Databricks CLI (script oficial)
 	curl -fsSL $(DATABRICKS_INSTALL_URL) | sh
@@ -33,17 +40,18 @@ sitemap: ## Baixa o sitemap de hoje e envia para o Volume
 	databricks fs mkdirs dbfs:$(VOLUME)/sitemaps
 	databricks fs cp /tmp/sitemap.xml dbfs:$(VOLUME)/sitemaps/sitemap_$$(date +%Y%m%d).xml --overwrite
 
-deploy: ## Publica notebooks + Job no workspace
-	databricks bundle deploy
+deploy: ## Publica notebooks + Job no workspace (TARGET=dev|qa|prod)
+	databricks bundle deploy -t $(TARGET)
 
 run: ## Executa o Job (dados → treino → recomendações)
-	databricks bundle run recsys
+	databricks bundle run recsys -t $(TARGET)
 
-export-notebooks: ## Traz os notebooks executados (com resultados) para notebooks/
-	@ROOT=$$(databricks bundle summary -o json | jq -r .workspace.file_path); \
-	for nb in notebooks/*.ipynb; do \
-		databricks workspace export "$$ROOT/$${nb%.ipynb}" --format JUPYTER --file "$$nb"; \
-	done
+db-destroy: ## Apaga do Databricks o Job, os notebooks, o schema (tabelas, Volume, modelo) e o experimento
+	@printf "Apagar o Job e TUDO em workspace.$(SCHEMA)? [s/N] " && read r && [ "$$r" = s ]
+	-databricks bundle destroy -t $(TARGET) --auto-approve
+	-databricks schemas delete workspace.$(SCHEMA) --force
+	-databricks workspace delete "/Users/$$(databricks current-user me | jq -r .userName)/$(SCHEMA)"
+	rm -rf .databricks/bundle/$(TARGET)
 
 # ---- Local -----------------------------------------------------------------------
 lint: ## Lint dos notebooks e do app

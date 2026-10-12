@@ -1,4 +1,4 @@
-# Todo dia às 06:00 (Brasília): baixa o sitemap, envia para o Volume e roda o Job.
+# Todo dia às 06:00 (Brasília): baixa o sitemap, envia para o Volume de PROD e roda o Job.
 # Fica no GitHub porque o Databricks Free Edition não acessa a internet.
 name: ingest
 
@@ -17,5 +17,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@main
-      - run: make sitemap SCHEMA=news_recsys
-      - run: databricks bundle run recsys -t prod
+      - run: make sitemap run TARGET=prod

@@ -5,3 +5,4 @@ streamlit
 pandas
 pyarrow
 databricks-sql-connector
+scikit-learn

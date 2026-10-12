@@ -20,7 +20,7 @@ flowchart TB
         VOL[("Volume raw")]
         subgraph JOB["Job news-recsys (3 tasks)"]
             direction TB
-            N1["01_dados<br/>matérias + cliques"]
+            N1["01_dados<br/>matérias + cliques<br/>+ o dado mudou?"]
             N2{"02_treino<br/>3 modelos + gate"}
             N3["03_recomendacoes<br/>top-10 + monitoramento"]
         end
@@ -50,7 +50,7 @@ flowchart TB
 |---|---|
 | 0a · 0b | (só quando há merge na `main`) CI verde → `cd.yml` publica o Job |
 | 1–3 | todo dia o GitHub baixa o sitemap, envia ao Volume e roda o Job |
-| 4–5 | `01_dados` lê os XMLs, grava as matérias e simula os cliques |
+| 4–5 | `01_dados` lê os XMLs, limpa (lista curta + filtro de template), compara com a carga anterior (`data_monitoring`), grava as matérias e simula os cliques |
 | 6–7 | `02_treino` compara 3 modelos no MLflow; o vencedor só vira `@champion` se for melhor |
 | 8–10 | `03_recomendacoes` usa o `@champion` e grava o top-10 de cada leitor |
 | 11 | o app lê a tabela gold |
@@ -68,25 +68,52 @@ flowchart TB
     G -- "não" --> K["mantém o campeão"]
 ```
 
-Resultado com o sitemap de 12/10/2026: **híbrido NDCG@10 = 0,23** · item-CF 0,13 ·
-popularidade 0,02. Só o híbrido acerta matérias novas (25–34%; os outros, 0%).
+Resultado com o snapshot de 03 a 12/10/2026 (3.101 matérias): **híbrido NDCG@10 = 0,090** ·
+item-CF 0,037 · popularidade 0,001. Só o híbrido acerta matérias novas (33%; os outros, 0%).
 
-## 3. Quem gerencia o quê
+## 3. Ambientes e esteira
 
 ```mermaid
 flowchart LR
-    TF["Terraform<br/>repo · secrets · proteção da main"] -- "1 · secrets" --> GA["GitHub Actions"]
+    DEV["dev<br/>make setup deploy run<br/>news_recsys_dev"]
+    F["feature/*"] -- "1 · PR + CI" --> D["develop"]
+    D -- "2 · cd.yml" --> QA["QA<br/>news_recsys_qa<br/>app: branch develop"]
+    D -- "3 · PR + CI" --> M["main"]
+    M -- "4 · cd.yml" --> PROD["PROD<br/>news_recsys_prod<br/>app: branch main"]
+    ING["ingest.yml<br/>06:00"] -- "5 · todo dia" --> PROD
+```
+
+| # | O que acontece |
+|---|---|
+| — | **dev**: cada pessoa testa no seu ambiente isolado, pelo `make` |
+| 1–2 | PR para `develop` roda o CI; o merge publica e roda o Job em **QA** |
+| 3–4 | QA ok → PR `develop` → `main`; o merge publica e roda o Job em **PROD** |
+| 5 | o ingest diário só alimenta PROD |
+
+Os três ambientes estão no **mesmo workspace** (a Free Edition só tem um), separados por schema
+e pasta. Em empresa, cada ambiente costuma ter o seu workspace.
+
+## 4. Quem gerencia o quê
+
+```mermaid
+flowchart LR
+    TF["Terraform<br/>repo · environments qa/prod · secrets · proteção das branches"] -- "1 · secrets" --> GA["GitHub Actions"]
     GA -- "2 · bundle deploy / run" --> DAB["Asset Bundle<br/>Job de 3 tasks"]
     DAB -- "3 · treino" --> ML["MLflow + Unity Catalog<br/>versões e @champion"]
-    ML -- "4 · tabela gold" --> ST["Streamlit Cloud<br/>(configurado pela UI)"]
+    ML -- "4 · tabela gold" --> ST["Streamlit Cloud<br/>2 apps: develop e main<br/>(configurado pela UI)"]
 ```
 
 ## Decisões
 
 1. **Código dentro dos notebooks:** é o que se mostra em aula. Além disso, neste workspace o
    Job falha ao importar `.py` de arquivos do workspace (erro de leitura do storage).
-2. **Cliques sintéticos:** não existe clickstream público; só a etapa `01_dados` mudaria em produção.
-3. **Inferência batch:** o top-10 fica pronto numa tabela; o app só faz `SELECT`.
-4. **Alias `@champion`:** app e inferência nunca usam "a última versão"; rollback = mover o alias.
-5. **Ingestão no GitHub Actions:** o Databricks Free Edition não acessa a internet.
-6. **Terraform só para o GitHub:** na Free Edition o workspace já vem pronto; o Job é do Asset Bundle.
+2. **Limpeza: automático detecta, pessoa decide:** uma lista curta de seções que não são notícia +
+   filtro automático de títulos de template; editoria nova ou mudança de 5 p.p. vira alerta em
+   `data_monitoring`, e quem muda a regra é uma pessoa.
+3. **Cliques sintéticos:** não existe clickstream público; só a etapa `01_dados` mudaria em produção.
+4. **Inferência batch:** o top-10 fica pronto numa tabela; o app só faz `SELECT`.
+5. **Alias `@champion`:** app e inferência nunca usam "a última versão"; rollback = mover o alias.
+6. **Ingestão no GitHub Actions:** o Databricks Free Edition não acessa a internet.
+7. **dev / QA / PROD por schema:** o mesmo código, o `TARGET` escolhe o ambiente; QA roda o Job
+   inteiro antes de PROD (teste de ponta a ponta).
+8. **Terraform só para o GitHub:** na Free Edition o workspace já vem pronto; o Job é do Asset Bundle.

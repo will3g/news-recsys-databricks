@@ -1,14 +1,16 @@
-# CI: todo PR (e push na main) passa pelo lint dos notebooks/app e pela validação do bundle.
+# CI: todo PR para develop ou main passa pelo lint dos notebooks/app e pela validação do bundle.
 name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    branches: [develop, main]
 
 jobs:
-  test:                      # nome usado pela proteção da main (infra/github)
+  test:                      # nome usado pela proteção das branches (infra/github)
     runs-on: ubuntu-latest
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - run: pip install ruff nbformat
@@ -18,8 +20,5 @@ jobs:
         run: python -c "import glob, nbformat; [nbformat.validate(nbformat.read(f, 4)) for f in glob.glob('notebooks/*.ipynb')]"
 
       - uses: databricks/setup-cli@main
-      - name: Bundle válido
-        run: databricks bundle validate -t prod
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      - name: Bundle válido (qa e prod)
+        run: databricks bundle validate -t qa && databricks bundle validate -t prod

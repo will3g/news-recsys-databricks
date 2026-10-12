@@ -4,5 +4,5 @@ github_owner    = "will3g"
 repository_name = "news-recsys-databricks"
 databricks_host = "https://dbc-xxxxxxxx-xxxx.cloud.databricks.com"
 
-# Passo 2 (depois do primeiro push):
+# Passo 2 (depois do push de main e develop):
 # enable_branch_protection = true

@@ -21,23 +21,13 @@ variable "databricks_host" {
 }
 
 variable "databricks_token" {
-  description = "PAT do Databricks — passe via TF_VAR_databricks_token, nunca no tfvars versionado"
+  description = "PAT do Databricks - passe via TF_VAR_databricks_token, nunca no tfvars versionado"
   type        = string
   sensitive   = true
 }
 
-variable "databricks_catalog" {
-  type    = string
-  default = "workspace"
-}
-
-variable "databricks_schema_prod" {
-  type    = string
-  default = "news_recsys"
-}
-
 variable "enable_branch_protection" {
-  description = "Ligue DEPOIS do primeiro push (a branch main precisa existir)"
+  description = "Ligue DEPOIS do primeiro push (develop e main precisam existir)"
   type        = bool
   default     = false
 }

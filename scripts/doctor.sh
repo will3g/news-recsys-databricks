@@ -1,6 +1,6 @@
 #!/bin/sh
 # Verifica as ferramentas do projeto e mostra como instalar o que faltar.
-# Funciona em macOS, Linux e Windows (via WSL2). POSIX sh — não precisa de bash.
+# Funciona em macOS, Linux e Windows (via WSL2). POSIX sh - não precisa de bash.
 #
 # Uso: sh scripts/doctor.sh [ferramenta-opcional ...]
 #   ex.: sh scripts/doctor.sh terraform gh jq

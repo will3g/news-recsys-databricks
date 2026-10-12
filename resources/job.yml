@@ -2,7 +2,7 @@
 resources:
   jobs:
     recsys:
-      name: news-recsys
+      name: news-recsys-${bundle.target}
 
       parameters:
         - name: schema

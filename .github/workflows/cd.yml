@@ -1,18 +1,23 @@
-# CD: merge na main publica o Job no target prod. (O Streamlit Cloud se atualiza sozinho.)
+# CD: merge na develop → QA · merge na main → PROD.
+# Em cada ambiente: cria schema/Volume (se faltar), publica o Job e roda o pipeline inteiro.
+# (Cada app do Streamlit Cloud se atualiza sozinho a partir da sua branch.)
 name: cd
 
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
+
+concurrency: cd-${{ github.ref_name }}   # um deploy por vez em cada ambiente
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
     env:
+      TARGET: ${{ github.ref_name == 'main' && 'prod' || 'qa' }}
       DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@main
-      - run: databricks bundle deploy -t prod
+      - run: make setup deploy run TARGET=$TARGET

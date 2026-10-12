@@ -22,8 +22,13 @@ Para quem não usa Databricks no dia a dia. Leia uma vez; na véspera, faça só
 |---|---|
 | Workspace → `.bundle/news-recsys-databricks/dev/files/notebooks` | os 3 notebooks publicados |
 | Catalog → `workspace` → `news_recsys_dev` | tabelas, Volume `raw` e o modelo `news_recommender` (aliases) |
-| Jobs & Pipelines → `[dev ...] news-recsys` | as 3 tasks e o histórico de execuções |
-| Experiments → `news_recsys` | runs dos 3 modelos (selecione e clique em *Compare*) |
+| Jobs & Pipelines → `[dev ...] news-recsys-dev` (ou `news-recsys-qa` / `news-recsys-prod`) | as 3 tasks e o histórico de execuções |
+| ... → clique numa execução → clique na task | o notebook **com os resultados** daquela execução |
+| Experiments → `news_recsys_dev` (um por ambiente) | runs dos 3 modelos (selecione e clique em *Compare*) |
+
+**Três ambientes, um workspace:** `dev` (o seu, pelo `make`), `qa` (merge na `develop`) e
+`prod` (merge na `main`). Cada um tem schema, Job, modelo e experimento próprios
+(`news_recsys_<ambiente>`). Qualquer comando do `make` aceita `TARGET=qa` ou `TARGET=prod`.
 
 ## 2. Preparação (uma vez, ~20 min)
 
@@ -37,7 +42,32 @@ Para quem não usa Databricks no dia a dia. Leia uma vez; na véspera, faça só
    make setup
    make deploy
    make run               # ~5 min; acompanhe em Jobs & Pipelines
-   make export-notebooks  # notebooks com os resultados, para mostrar em aula
+   ```
+4. Vai em **SQL Editor**:
+   ```
+   WITH lidas AS (
+    SELECT u.persona, a.section, count(*) AS n
+    FROM workspace.news_recsys_dev.silver_clicks c
+    JOIN workspace.news_recsys_dev.silver_users u USING (user_id)
+    JOIN workspace.news_recsys_dev.bronze_articles a USING (url)
+    GROUP BY ALL
+   ),
+   recomendadas AS (
+     SELECT u.persona, g.section, count(*) AS n
+     FROM workspace.news_recsys_dev.gold_recommendations g
+     JOIN workspace.news_recsys_dev.silver_users u USING (user_id)
+     GROUP BY ALL
+   )
+   SELECT persona, section,
+         round(100 * coalesce(l.n, 0) / sum(l.n) OVER (PARTITION BY persona), 1) AS pct_lidas,
+         round(100 * coalesce(r.n, 0) / sum(r.n) OVER (PARTITION BY persona), 1) AS pct_recomendadas
+   FROM lidas l
+   FULL JOIN recomendadas r USING (persona, section)
+   QUALIFY pct_lidas >= 5 OR pct_recomendadas >= 5
+   ORDER BY persona, pct_lidas DESC
+   ```
+5. Volta para o **terminal** e executa:
+   ```
    make install && make app
    ```
 
@@ -48,12 +78,16 @@ Alunos com **Windows**: peça que instalem o WSL antes da aula
 
 - [ ] `make run` terminou verde (3 tasks).
 - [ ] O modelo tem o alias `@champion` (Catalog → `news_recommender`).
-- [ ] Notebooks exportados abrem com os resultados.
+- [ ] A última execução do Job abre as 3 tasks com os resultados.
 - [ ] `make app` mostra as recomendações.
 - [ ] Abas abertas: Catalog, Jobs, Experiments, app, GitHub Actions.
 
-**Plano B:** os notebooks exportados já têm todos os resultados e o app funciona sem
-Databricks (amostra). A aula não depende de nada estar no ar.
+**Recomeçar do zero** (antes de um ensaio ou depois da aula): `make db-destroy` (pede
+confirmação; apaga Job, notebooks, tabelas, Volume, modelo e experimento do ambiente dev) e
+depois `make setup deploy run`.
+
+**Plano B:** o app funciona sem Databricks (amostra) e a última execução do Job fica no
+histórico por 60 dias. Sem internet, sobram o app e os diagramas.
 
 ## 4. Se algo der errado
 
@@ -72,8 +106,8 @@ Databricks (amostra). A aula não depende de nada estar no ar.
   reais, só o `01_dados` mudaria.
 - **"Por que o híbrido ganha?"** O item-CF só recomenda o que já foi clicado; matéria nova
   (sem clique) fica de fora. O híbrido usa também título, editoria e recência.
-- **"NDCG de 0,23 não é baixo?"** Em recomendação é comum: cada pessoa lê poucas das ~700
-  matérias. Compare com o baseline (0,02).
+- **"NDCG de 0,09 não é baixo?"** Em recomendação é comum: cada pessoa lê poucas das ~3.100
+  matérias. Compare com o baseline (0,001) e com o item-CF (0,037).
 - **"Por que batch e não API?"** Recomendação de home muda pouco em minutos; batch é barato e
   o app só faz um `SELECT`.
 - **"Por que o Terraform não cria o Databricks?"** Na Free Edition o workspace já vem pronto;
