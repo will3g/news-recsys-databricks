@@ -40,9 +40,12 @@ def carregar(consulta: str, arquivo: str) -> pd.DataFrame:
             http_path=cfg["http_path"],
             access_token=cfg["access_token"],
         ) as conn:
-            return pd.read_sql(consulta.format(schema=cfg["schema"]), conn)
-    except Exception:
-        return pd.read_parquet(AMOSTRA / f"{arquivo}.parquet")
+            dados = pd.read_sql(consulta.format(schema=cfg["schema"]), conn)
+        dados.attrs["fonte"] = f"Lakehouse (workspace.{cfg['schema']})"
+    except Exception as erro:  # sem secrets ou sem conexão: plano B, mas mostrando o motivo
+        dados = pd.read_parquet(AMOSTRA / f"{arquivo}.parquet")
+        dados.attrs["fonte"] = f"amostra local ({type(erro).__name__}: {str(erro)[:150]})"
+    return dados
 
 
 S = "workspace.{schema}"
@@ -59,6 +62,7 @@ materias = carregar(
 
 st.title("📰 Recomendação de notícias")
 st.caption("Matérias reais do O Globo · leitores e cliques sintéticos · modelo treinado no Databricks")
+st.caption(f"Dados: {recs.attrs.get('fonte', '?')}")
 
 aba_recs, aba_perfil, aba_modelo = st.tabs(["Recomendações", "Monte seu perfil", "Modelo"])
 
