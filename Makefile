@@ -39,7 +39,9 @@ setup: ## Cria schema e Volume e envia o sitemap de exemplo
 	databricks fs cp data/sitemap_snapshot.xml dbfs:$(VOLUME)/sitemaps/sitemap_snapshot.xml --overwrite
 
 sitemap: ## Baixa o sitemap de hoje e envia para o Volume
-	curl -fsSL -A "Mozilla/5.0" $(SITEMAP) -o /tmp/sitemap.xml
+# O O Globo às vezes responde em gzip: --compressed + gzip -dcf garantem XML puro
+	curl -fsSL --compressed -A "Mozilla/5.0" $(SITEMAP) -o /tmp/sitemap.download
+	gzip -dcf /tmp/sitemap.download > /tmp/sitemap.xml
 	databricks fs mkdirs dbfs:$(VOLUME)/sitemaps
 	databricks fs cp /tmp/sitemap.xml dbfs:$(VOLUME)/sitemaps/sitemap_$$(date +%Y%m%d).xml --overwrite
 
