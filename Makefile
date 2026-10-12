@@ -20,9 +20,6 @@ help: ## Mostra os comandos
 doctor: ## Confere as ferramentas instaladas (macOS, Linux, Windows/WSL)
 	@sh scripts/doctor.sh jq terraform gh
 
-gh-login: ## Dá ao gh permissão para enviar os workflows e apagar o repositório (gh-destroy)
-	gh auth refresh -h github.com -s workflow,delete_repo
-
 db-install: ## Instala a Databricks CLI (script oficial)
 	curl -fsSL $(DATABRICKS_INSTALL_URL) | sh
 	databricks --version
@@ -67,6 +64,9 @@ app: ## Roda o app Streamlit (sem secrets usa app/sample_data)
 	.venv/bin/streamlit run app/streamlit_app.py
 
 # ---- GitHub: preparação manual, uma vez (a esteira não cria as próprias credenciais) ----
+gh-login: ## Dá ao gh permissão para enviar os workflows e apagar o repositório (gh-destroy)
+	gh auth refresh -h github.com -s workflow,delete_repo
+
 gh-repo: ## 1) Cria o repositório público, aponta o remote origin e habilita o Actions
 	gh repo create $(GH_REPO) --public --source . --remote origin
 	gh api -X PUT repos/$(GH_REPO)/actions/permissions -F enabled=true -f allowed_actions=all

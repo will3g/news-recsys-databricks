@@ -1,7 +1,5 @@
 # Recomendação de notícias com MLOps no Databricks
 
-**FIAP Pós-Tech · Fase 5 - MLOps · projeto de aula**
-
 Um recomendador de notícias que **se re-treina sozinho todo dia** e só troca o modelo em
 produção quando o novo é melhor.
 
@@ -12,15 +10,15 @@ produção quando o novo é melhor.
 
 ```mermaid
 flowchart LR
-    GH["GitHub Actions<br/>06:00"] -- "1 · sitemap" --> V[("Volume")]
+    GH["GitHub Actions<br/>06:00"] -- "1: sitemap" --> V[("Volume")]
     V --> N1["01_dados"] --> N2["02_treino<br/>MLflow + gate"] --> N3["03_recomendacoes"]
     N2 -- "@champion" --> UC[("Unity Catalog")]
     N3 --> G[("gold_recommendations")] --> APP["App Streamlit"]
 ```
 
-Detalhes e mais diagramas: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
+> Detalhes e mais diagramas: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
-## O que tem aqui
+## Estrutura do projeto
 
 | Pasta / arquivo | Para quê |
 |---|---|
@@ -33,7 +31,28 @@ Detalhes e mais diagramas: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 | `infra/github/` | Terraform: repositório, secrets e proteção da `main` |
 | `docs/` | arquitetura, guia do professor, roteiro da aula |
 
-Todo o código do modelo está **dentro dos notebooks** - é o que se apresenta em aula.
+> Todo o código do modelo está **dentro dos notebooks**.
+
+## O que é utilizado no Databricks
+
+| Termo | Em uma linha |
+|---|---|
+| Workspace | o "site" do Databricks da sua conta |
+| Unity Catalog | catálogo de dados e modelos: `workspace.news_recsys_dev.tabela` |
+| Volume | pasta de arquivos dentro do catálogo (`/Volumes/workspace/news_recsys_dev/raw/`) |
+| Delta | formato das tabelas (Parquet + histórico de versões) |
+| Serverless | o compute liga sozinho; ninguém cria máquina |
+| Job | notebooks encadeados como tasks, com agenda e histórico |
+| Asset Bundle | `databricks.yml`: o Job descrito em código; `make deploy` publica |
+| MLflow run | um treino registrado (parâmetros + métricas + modelo) |
+| Versão / alias | cada registro do modelo vira versão 1, 2, 3...; `@champion` aponta para a que está em uso |
+
+**Três ambientes, um workspace:**
+   - `dev` (o seu, pelo `make`)
+   - `qa` (merge na `develop`)
+   - `prod` (merge na `main`)
+   
+> Cada um tem schema, Job, modelo e experimento próprios (`news_recsys_<ambiente>`). Qualquer comando do `make` aceita `TARGET=qa` ou `TARGET=prod`.
 
 ## Instalação (macOS, Linux e Windows)
 
@@ -45,72 +64,116 @@ Todo o código do modelo está **dentro dos notebooks** - é o que se apresenta 
 
 ```bash
 make doctor        # confere o que está instalado
-make db-install    # Databricks CLI (script oficial)
-make install       # Python local para lint e app
 ```
 
-## Rodando
+## Mão na massa
 
+1. Conta Free Edition: <https://www.databricks.com/learn/free-edition>.
+
+2. Token: avatar → **Settings** → **Developer** → **Access tokens** → *Generate new token*.
+
+3. No terminal, na pasta do projeto:
 ```bash
-make db-configure  # 1x: URL do workspace + token (Settings → Developer → Access tokens)
-make setup         # cria schema e Volume e envia o sitemap de exemplo
-make deploy        # publica notebooks + Job
-make run           # roda o Job: dados → treino → recomendações
-make app           # abre o app em http://localhost:8501
+make db-install
+make db-configure      # URL do workspace + token
+make setup
+make deploy
+make run               # ~5 min; acompanhe em Jobs & Pipelines
 ```
 
-Sem parâmetro, tudo vai para o seu ambiente **dev** (isolado). Para os outros, `TARGET=qa` ou
-`TARGET=prod`:
+4. Para visualizar as recomendações, vai em **SQL Editor**:
+```sql
+WITH lidas AS (
+SELECT u.persona, a.section, count(*) AS n
+FROM workspace.news_recsys_dev.silver_clicks c
+JOIN workspace.news_recsys_dev.silver_users u USING (user_id)
+JOIN workspace.news_recsys_dev.bronze_articles a USING (url)
+GROUP BY ALL
+),
+recomendadas AS (
+    SELECT u.persona, g.section, count(*) AS n
+    FROM workspace.news_recsys_dev.gold_recommendations g
+    JOIN workspace.news_recsys_dev.silver_users u USING (user_id)
+    GROUP BY ALL
+)
+SELECT persona, section,
+        round(100 * coalesce(l.n, 0) / sum(l.n) OVER (PARTITION BY persona), 1) AS pct_lidas,
+        round(100 * coalesce(r.n, 0) / sum(r.n) OVER (PARTITION BY persona), 1) AS pct_recomendadas
+FROM lidas l
+FULL JOIN recomendadas r USING (persona, section)
+QUALIFY pct_lidas >= 5 OR pct_recomendadas >= 5
+ORDER BY persona, pct_lidas DESC
+```
 
-| Ambiente | Como é atualizado | Schema | App |
-|---|---|---|---|
-| dev | `make setup deploy run` (manual) | `news_recsys_dev` | `make app` (local) |
-| qa | merge na `develop` → `cd.yml` | `news_recsys_qa` | Streamlit Cloud, branch `develop` |
-| prod | merge na `main` → `cd.yml` + ingest diário | `news_recsys_prod` | Streamlit Cloud, branch `main` |
-
-`make sitemap` envia o sitemap do dia. Os notebooks com os resultados ficam no Databricks:
-**Jobs & Pipelines → execução → task**. `make db-destroy` apaga tudo do Databricks (Job,
-tabelas, Volume, modelo e experimento) para recomeçar do zero com `make setup deploy run`.
-
-## Publicando (GitHub + Streamlit Cloud)
-
-Fluxo: `feature/*` → PR → `develop` (deploy em **QA**) → PR → `main` (deploy em **PROD**). Todo PR
-roda o CI; `develop` e `main` só aceitam PR com CI verde.
-
-**Tudo roda no GitHub Actions:**
-
-| Quando | Workflow | Jobs |
-|---|---|---|
-| PR para `develop` ou `main` | `ci.yml` | `test` (lint + validação) → `infra-plan` (o que o Terraform vai mudar) |
-| merge na `develop` / `main` | `cd.yml` | `infra` (Terraform) → `databricks` (QA / PROD) → `streamlit` (a app responde?) |
-| todo dia 06:00 | `ingest.yml` | sitemap → Volume de PROD → Job |
-
-O state do Terraform fica no Volume `workspace.default.tfstate` (o runner é descartável) e não
-guarda tokens.
-
-**Preparação manual, uma vez** (a esteira não pode criar as próprias credenciais):
-
+5. Volta para o **terminal** e executa:
 ```bash
-make gh-login     # gh com permissão de workflow
-make gh-repo      # cria o repositório público + remote origin
-# GitHub → Settings → Developer settings → fine-grained PAT só deste repositório,
-#   permissões Administration e Environments: read/write
-make gh-secrets   # DATABRICKS_HOST/TOKEN (do ~/.databrickscfg) + o PAT (pede para colar)
-make gh-push      # envia main e develop: a esteira assume
+make install
+make app
+```
+> Realize os testes locais e veja se está funcionando
+
+6. **GitHub (uma vez):** cria o repositório e liga a esteira.
+```bash
+make gh-login
+make gh-repo
 ```
 
-Para **recriar do zero** (ensaios): `make gh-destroy` (apaga o repositório e o state do Terraform)
-→ `make gh-repo` → no PAT, *Edit* → *Repository access* → selecione o repositório novo →
-`make gh-secrets` → `make gh-push`.
+7. **Token do GitHub para o Terraform da esteira**
+```yml
+# TF_GITHUB_TOKEN: Settings → Developer settings → o token → Edit → Repository access
+7.1: **Repository access:** *Only select repositories* → `will3g/news-recsys-databricks`
+7.2: **Permissions → Repositories → + Add permissions:**
+7.3:
+.---------------------------------.
+| Permissão      | Acesso         |
+|----------------|----------------|
+| Administration | Read and write |
+| Environments   | Read and write |
+`---------------------------------´
+7.4: *Generate token* (ou *Update*), e copie o valor.
+```
 
-**Streamlit Cloud (2 apps, pela UI):** share.streamlit.io → *Create app* → este repositório,
-`app/streamlit_app.py`:
+8. Secrets e primeiro push:
+```bash
+make gh-secrets
+make gh-push
+```
 
-- branch `develop`, URL `<seu-usuário>-news-recsys-homolog` (o Streamlit não aceita "qa"), secrets com `schema = "news_recsys_qa"`
-- branch `main`, URL `<seu-usuário>-news-recsys` (nem "prod" é aceito), secrets com `schema = "news_recsys_prod"`
+9. **Acompanhe a esteira** em **Actions** → `cd` (develop = QA, main = PROD):
+```yml
+infra (Terraform) → databricks (setup + deploy + run, ~5 min) → streamlit
+```
+> Se não disparar: **Actions** → `cd` → *Run workflow* → escolha a branch.
 
-(secrets: modelo em `app/.streamlit/secrets.toml.example`). O Streamlit Cloud não tem API de
-deploy: cada app se atualiza sozinha a cada push na sua branch; o job `streamlit` só confere.
+10. **Streamlit Cloud (2 apps):** <https://share.streamlit.io> → *Create app* → *Deploy a public
+    app from GitHub*:
+```bash
+┌────────────────┬───────────────────────────────┬───────────────────────────────┐
+│     Campo      │            App QA             │           App PROD            │
+├────────────────┼───────────────────────────────┼───────────────────────────────┤
+│ Repository     │ will3g/news-recsys-databricks │ will3g/news-recsys-databricks │
+├────────────────┼───────────────────────────────┼───────────────────────────────┤
+│ Branch         │ develop                       │ main                          │
+├────────────────┼───────────────────────────────┼───────────────────────────────┤
+│ Main file path │ app/streamlit_app.py          │ app/streamlit_app.py          │
+├────────────────┼───────────────────────────────┼───────────────────────────────┤
+│ App URL        │ will3g-news-recsys-homolog    │ will3g-news-recsys            │
+└────────────────┴───────────────────────────────┴───────────────────────────────┘
+```
+
+11. **Secrets de cada app:** *Advanced settings* (ou **Manage app** → ⋮ → *Settings*) → *Secrets*.
+    A linha `[databricks]` é obrigatória:
+```bash
+# EX: http_path = "/sql/1.0/warehouses/a72a5e4a3480ab26" (SQL -> SQL WAREHOUSE)
+
+[databricks]
+server_hostname = "<host>.cloud.databricks.com"
+http_path = "/sql/1.0/warehouses/<sql-warehouse-http-path-id>"
+access_token = "token"
+catalog = "workspace"
+schema = "news_recsys_<qa|prod>"
+```
+> Depois: **Manage app** → ⋮ → *Reboot app*.
 
 ## Custos
 
