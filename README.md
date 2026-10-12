@@ -77,14 +77,27 @@ tabelas, Volume, modelo e experimento) para recomeçar do zero com `make setup d
 Fluxo: `feature/*` → PR → `develop` (deploy em **QA**) → PR → `main` (deploy em **PROD**). Todo PR
 roda o CI; `develop` e `main` só aceitam PR com CI verde.
 
-1. `make gh-login`: dá ao `gh` permissão para enviar os workflows (1x).
-2. **GitHub com Terraform:** copie `infra/github/terraform.tfvars.example` para
-   `terraform.tfvars`, faça `export TF_VAR_databricks_token=dapi...` e rode
-   `make tf-init tf-plan tf-apply` (cria o repositório, os environments `qa`/`prod` e os secrets).
-3. `git push` de `main` e `develop`: o `cd.yml` cria e roda QA e PROD.
-4. Proteção das branches: `enable_branch_protection = true` no `terraform.tfvars` e
-   `make tf-plan tf-apply` de novo.
-5. **Streamlit Cloud (2 apps):** share.streamlit.io → *Create app* → este repositório,
+**Preparação manual, uma vez** (a esteira não pode criar as próprias credenciais):
+
+1. Conta grátis no [HCP Terraform](https://app.terraform.io) e uma organização (padrão do
+   Makefile: `<seu-usuário-github>-mlops`; outro nome → `TF_ORG=...` nos comandos abaixo).
+2. Um **fine-grained PAT** do GitHub para o repositório (*Administration* e *Environments*:
+   read/write). Ele vira o secret `TF_GITHUB_TOKEN`.
+3. No terminal:
+   ```bash
+   make gh-login      # gh com permissão de workflow
+   make gh-repo       # cria o repositório público + remote origin
+   make tf-login      # login no HCP Terraform
+   make tf-workspace  # workspace do state (execução no runner do Actions)
+   make gh-secrets    # DATABRICKS_HOST/TOKEN, TF_API_TOKEN, TF_CLOUD_ORGANIZATION e o PAT (pede para colar)
+   make gh-push       # envia main e develop: a esteira assume
+   ```
+
+**Daí em diante, tudo pela esteira:** `infra.yml` aplica o Terraform (environments `qa`/`prod` e
+proteção de `develop`/`main`; plan no PR, apply no merge na `main`) e o `cd.yml` cria e roda QA
+e PROD.
+
+**Streamlit Cloud (2 apps):** share.streamlit.io → *Create app* → este repositório,
    `app/streamlit_app.py`, branch `develop` (QA) e depois branch `main` (PROD) → *Advanced
    settings* → secrets de `app/.streamlit/secrets.toml.example` com `schema = "news_recsys_qa"`
    ou `"news_recsys_prod"`.
@@ -96,5 +109,5 @@ R$ 0: Databricks Free Edition, GitHub Actions (repo público) e Streamlit Commun
 ## Limitações conhecidas
 
 - Os cliques são **sintéticos**: as métricas medem o padrão das personas, não leitores reais.
-- O state do Terraform guarda o token do Databricks em texto puro (fica local, fora do git).
-- O token do Databricks expira: renove no GitHub (`make tf-apply`) e no Streamlit Cloud.
+- O state do Terraform fica no HCP Terraform; ele não guarda tokens (os secrets são criados pelo `make gh-secrets`).
+- O token do Databricks expira: renove no GitHub (`make gh-secrets`) e no Streamlit Cloud.

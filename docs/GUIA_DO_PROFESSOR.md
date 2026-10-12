@@ -112,5 +112,8 @@ histórico por 60 dias. Sem internet, sobram o app e os diagramas.
   o app só faz um `SELECT`.
 - **"Por que o Terraform não cria o Databricks?"** Na Free Edition o workspace já vem pronto;
   o Job é do Asset Bundle. O Terraform cuida do GitHub.
+- **"Por que o repositório e os secrets são criados à mão?"** A esteira roda dentro do
+  repositório e usa os secrets: ela não pode criar as próprias credenciais. É um bootstrap de
+  uma vez (`make gh-repo` … `make gh-push`); depois disso, tudo muda por PR.
 - **"É LGPD-safe?"** Aqui sim (dados sintéticos). Com cliques reais: consentimento,
   minimização e retenção.

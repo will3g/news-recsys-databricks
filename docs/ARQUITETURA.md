@@ -97,7 +97,8 @@ e pasta. Em empresa, cada ambiente costuma ter o seu workspace.
 
 ```mermaid
 flowchart LR
-    TF["Terraform<br/>repo · environments qa/prod · secrets · proteção das branches"] -- "1 · secrets" --> GA["GitHub Actions"]
+    MAN["make gh-repo / gh-secrets<br/>(manual, 1x)"] -- "0 · repo + secrets" --> GA["GitHub Actions"]
+    GA -- "1 · infra.yml" --> TF["Terraform (state no HCP)<br/>environments qa/prod · proteção das branches"]
     GA -- "2 · bundle deploy / run" --> DAB["Asset Bundle<br/>Job de 3 tasks"]
     DAB -- "3 · treino" --> ML["MLflow + Unity Catalog<br/>versões e @champion"]
     ML -- "4 · tabela gold" --> ST["Streamlit Cloud<br/>2 apps: develop e main<br/>(configurado pela UI)"]
@@ -116,4 +117,7 @@ flowchart LR
 6. **Ingestão no GitHub Actions:** o Databricks Free Edition não acessa a internet.
 7. **dev / QA / PROD por schema:** o mesmo código, o `TARGET` escolhe o ambiente; QA roda o Job
    inteiro antes de PROD (teste de ponta a ponta).
-8. **Terraform só para o GitHub:** na Free Edition o workspace já vem pronto; o Job é do Asset Bundle.
+8. **Bootstrap manual, resto pela esteira:** repositório e secrets são criados uma vez pelo
+   `make` (a esteira não cria as próprias credenciais); o Terraform roda no `infra.yml` com state no
+   HCP Terraform, sem tokens no state.
+9. **Terraform só para o GitHub:** na Free Edition o workspace já vem pronto; o Job é do Asset Bundle.

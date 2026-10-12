@@ -6,11 +6,16 @@ terraform {
       version = "~> 6.0"
     }
   }
-  # State LOCAL (gitignored). Ele contém os secrets em texto puro!
-  # Em produção: backend remoto criptografado (S3+KMS, GCS, Terraform Cloud...).
+  # State no HCP Terraform (gratuito): o runner do GitHub Actions é descartável.
+  # A organização vem de TF_CLOUD_ORGANIZATION (Makefile e infra.yml já definem).
+  cloud {
+    workspaces {
+      name = "news-recsys-github"
+    }
+  }
 }
 
-# Autenticação: export GITHUB_TOKEN=$(gh auth token)   (o Makefile já faz isso)
+# Autenticação: GITHUB_TOKEN = PAT com admin do repositório (secret TF_GITHUB_TOKEN no Actions)
 provider "github" {
   owner = var.github_owner
 }

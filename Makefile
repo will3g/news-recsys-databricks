@@ -4,8 +4,14 @@ SCHEMA   = news_recsys_$(TARGET)
 VOLUME   = /Volumes/workspace/$(SCHEMA)/raw
 SITEMAP  = https://oglobo.globo.com/sitemap/oglobo/news.xml
 DATABRICKS_INSTALL_URL = https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh
+GH_OWNER ?= $(shell gh api user -q .login 2>/dev/null)
+GH_REPO   = $(GH_OWNER)/news-recsys-databricks
+# Organização no HCP Terraform (nome único; crie em app.terraform.io)
+TF_ORG   ?= $(GH_OWNER)-mlops
+TF_ENV    = TF_CLOUD_ORGANIZATION=$(TF_ORG) TF_VAR_github_owner=$(GH_OWNER) GITHUB_TOKEN=$$(gh auth token)
 
-.PHONY: help doctor gh-login db-install db-configure install setup sitemap deploy run db-destroy lint app tf-init tf-plan tf-apply
+.PHONY: help doctor gh-login db-install db-configure install setup sitemap deploy run db-destroy lint app \
+	gh-repo tf-login tf-workspace gh-secrets gh-push tf-init tf-plan tf-apply
 
 help: ## Mostra os comandos
 	@grep -E '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -13,9 +19,6 @@ help: ## Mostra os comandos
 # ---- Preparação ---------------------------------------------------------------
 doctor: ## Confere as ferramentas instaladas (macOS, Linux, Windows/WSL)
 	@sh scripts/doctor.sh jq terraform gh
-
-gh-login: ## Dá ao gh permissão para enviar os workflows (.github/workflows)
-	gh auth refresh -h github.com -s workflow
 
 db-install: ## Instala a Databricks CLI (script oficial)
 	curl -fsSL $(DATABRICKS_INSTALL_URL) | sh
@@ -60,12 +63,36 @@ lint: ## Lint dos notebooks e do app
 app: ## Roda o app Streamlit (sem secrets usa app/sample_data)
 	.venv/bin/streamlit run app/streamlit_app.py
 
-# ---- Terraform (GitHub) -----------------------------------------------------------
-tf-init: ## terraform init
-	terraform -chdir=infra/github init
+# ---- GitHub: preparação manual, uma vez (a esteira não cria as próprias credenciais) ----
+gh-repo: ## 1) Cria o repositório público e aponta o remote origin
+	gh repo create $(GH_REPO) --public --source . --remote origin
 
-tf-plan: ## terraform plan (usa o token do gh e TF_VAR_databricks_token)
-	GITHUB_TOKEN=$$(gh auth token) terraform -chdir=infra/github plan -out=tfplan
+tf-login: ## 2) Login no HCP Terraform (abre o navegador; crie antes a organização em app.terraform.io)
+	terraform login
+
+tf-workspace: ## 3) Cria o workspace do state no HCP Terraform (execução local = no runner)
+	@curl -sf -X POST https://app.terraform.io/api/v2/organizations/$(TF_ORG)/workspaces \
+		-H "Authorization: Bearer $$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)" \
+		-H "Content-Type: application/vnd.api+json" \
+		-d '{"data":{"type":"workspaces","attributes":{"name":"news-recsys-github","execution-mode":"local"}}}' \
+		>/dev/null && echo "workspace criado" || echo "workspace já existe (ou organização $(TF_ORG) não existe)"
+
+gh-secrets: ## 4) Secrets do Actions (pede o PAT do GitHub com admin do repositório)
+	databricks auth env | jq -r .env.DATABRICKS_HOST | gh secret set DATABRICKS_HOST -R $(GH_REPO)
+	databricks auth env | jq -r .env.DATABRICKS_TOKEN | gh secret set DATABRICKS_TOKEN -R $(GH_REPO)
+	jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json | gh secret set TF_API_TOKEN -R $(GH_REPO)
+	gh variable set TF_CLOUD_ORGANIZATION --body $(TF_ORG) -R $(GH_REPO)
+	gh secret set TF_GITHUB_TOKEN -R $(GH_REPO)
+
+gh-push: ## 5) Envia main e develop: a esteira assume (infra, QA e PROD)
+	git push -u origin main develop
+
+# ---- Terraform local (opcional: o normal é o infra.yml rodar) ------------------------
+tf-init: ## terraform init (state no HCP Terraform)
+	$(TF_ENV) terraform -chdir=infra/github init
+
+tf-plan: ## terraform plan
+	$(TF_ENV) terraform -chdir=infra/github plan
 
 tf-apply: ## terraform apply
-	GITHUB_TOKEN=$$(gh auth token) terraform -chdir=infra/github apply tfplan
+	$(TF_ENV) terraform -chdir=infra/github apply

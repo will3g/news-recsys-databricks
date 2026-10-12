@@ -1,0 +1,33 @@
+# Terraform do GitHub (infra/github): plan em PR, apply no merge na main.
+# State no HCP Terraform; credenciais criadas uma vez com `make gh-secrets`.
+name: infra
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ["infra/**"]
+  push:
+    branches: [main]
+    paths: ["infra/**"]
+  workflow_dispatch:           # botão "Run workflow" para aplicar na hora
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/github
+    env:
+      GITHUB_TOKEN: ${{ secrets.TF_GITHUB_TOKEN }}
+      TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
+      TF_VAR_github_owner: ${{ github.repository_owner }}
+      TF_VAR_repository_name: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - run: terraform init -input=false
+      - run: terraform plan -input=false
+      - if: github.event_name != 'pull_request'
+        run: terraform apply -auto-approve -input=false
