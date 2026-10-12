@@ -1,41 +1,34 @@
-# Roteiro da aula — Recomendação de notícias com MLOps no Databricks
+# Roteiro da aula (~90 min)
 
-**Duração:** ~120 min. **Material:** diagramas de [`ARQUITETURA_MERMAID.md`](ARQUITETURA_MERMAID.md) (fio condutor), notebooks exportados (com outputs), app Streamlit,
-repositório no GitHub (aba Actions).
+Fio condutor: **"o modelo se re-treina sozinho todo dia e não pode piorar"**.
+Material: diagramas de [`ARQUITETURA.md`](ARQUITETURA.md), os 3 notebooks (com resultados) e o app.
 
-| Bloco | Tempo | Material | Mensagem central |
+| Bloco | Tempo | Material | Mensagem |
 |---|---|---|---|
-| 1. Problema e arquitetura | 15 min | diagrama 1 (visão geral) | recsys é dado + modelo + operação |
-| 2. Tour Databricks | 10 min | notebook 00 + UI | onde cada coisa mora |
-| 3. Dados: bronze e eventos sintéticos | 15 min | notebooks 01–02 | ingestão desacoplada, `MERGE`, personas |
-| 4. Treino e comparação | 20 min | diagrama 2 + notebook 03 + Experiments | baseline primeiro; MLflow guarda tudo |
-| 5. Gate e registro | 15 min | notebook 04 + Catalog | `@champion`, rollback por alias |
-| 6. Inferência e app | 15 min | notebook 05 + Streamlit | batch → tabela → app |
-| 7. Monitoramento | 10 min | notebook 06 | cobertura e drift (PSI) |
-| 8. CI/CD e Terraform | 15 min | diagramas 3 e 4 + GitHub Actions + `infra/github` | quem gerencia o quê |
-| 9. Fechamento | 5 min | diagrama 1 de novo | o ciclo completo + próximos passos |
+| 1. Problema e arquitetura | 15 min | diagrama 1 | um recomendador é dado + modelo + operação |
+| 2. Dados | 15 min | `01_dados` + Catalog | matérias reais, cliques sintéticos, tudo com endereço no catálogo |
+| 3. Treino e gate | 25 min | diagrama 2 + `02_treino` + Experiments | baseline primeiro; o MLflow guarda tudo; só promove se for melhor |
+| 4. Recomendações e app | 15 min | `03_recomendacoes` + app | batch → tabela → app |
+| 5. Automação | 15 min | diagrama 3 + GitHub Actions + `job.yml` | CI, deploy e cron; Terraform cuida do GitHub |
+| 6. Fechamento | 5 min | diagrama 1 | o ciclo completo |
 
-## Falas-chave por bloco
+## Falas-chave
 
-1. "Todo portal tem 'recomendado para você'. Hoje construímos um — e, principalmente, o que mantém ele funcionando sozinho."
-2. "Dado, código, modelo e agenda no mesmo lugar, com o mesmo controle de acesso."
-3. "O GitHub busca o dado porque a Free Edition não tem internet: limitação vira desenho." · "Não temos cliques reais; simulamos — e só esta etapa mudaria em produção."
-4. "Se o modelo sofisticado não ganha da popularidade, ele não se paga." · "Abram Experiments: cada candidato é uma linha comparável." · "CF não vê matéria nova — olhem a coluna 'fria' zerada; o híbrido resolve."
-5. "O app nunca usa 'a última versão'. Usa `@champion`. Rollback é mover um ponteiro."
-6. "Recomendação pronta antes do usuário chegar: o app só faz um SELECT."
-7. "Modelo bom hoje pode virar bolha amanhã: monitoramos diversidade, não só acurácia."
-8. "Terraform cuida da plataforma (aqui, o GitHub); o Bundle cuida do projeto no Databricks; o CI garante que nada quebrado chegue na main."
+1. "Todo portal tem 'recomendado para você'. Hoje o foco é o que mantém isso funcionando sozinho."
+2. "Não temos cliques reais, então simulamos. Com dados reais, só este notebook mudaria."
+3. "Se o modelo sofisticado não ganha da popularidade, ele não se paga." · "O item-CF não vê
+   matéria nova — olhem a coluna de matérias frias zerada."
+4. "O app nunca usa 'a última versão'. Usa `@champion`. Rollback é mover um ponteiro."
+5. "O GitHub busca o dado porque o Databricks Free Edition não tem internet."
 
-## Demonstrações ao vivo (curtas)
+## Demonstrações
 
-- App: trocar entre um usuário *torcedor* e um *investidor*.
-- Notebook 04: mostrar a decisão do gate; no Catalog, a tag `gate_decision` das versões.
-- GitHub: abrir um PR trivial → CI roda `ruff`/`pytest` → merge → `cd.yml` faz deploy.
-- (Se der tempo) `Run workflow` no `ingest.yml` e acompanhar o Job disparar no Databricks.
+- **App:** trocar entre um leitor *torcedor* e um *investidor*.
+- **Gate:** rodar o Job de novo → o NDCG empata e o modelo **não** é promovido.
+- **GitHub:** abrir um PR → o CI roda → merge → o `cd.yml` publica.
 
-## Exercícios para os alunos
+## Exercícios
 
-1. Adicionar um candidato `svd(n_components=64)` em `training.DEFAULT_CANDIDATES` e ver se ele vira campeão.
-2. Mudar `noise` da simulação para 0.5: o que acontece com o NDCG de cada modelo? E com o PSI?
-3. Criar uma persona nova em `simulation.PERSONAS` e verificar no app.
-4. Mudar a métrica de promoção para `cold_hit_rate_at_k`: qual candidato vira campeão? Faz sentido para o negócio?
+1. Mudar `alpha` no `score_hibrido` (0,2 · 0,6): o que acontece com o NDCG e com as matérias frias?
+2. Criar uma persona nova em `PERSONAS` e procurar um leitor dela no app.
+3. Trocar a métrica do gate de NDCG para `hit_fria_10`: quem vira campeão? Faz sentido para o negócio?

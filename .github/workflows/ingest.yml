@@ -1,20 +1,11 @@
-# Ingestão diária: o runner do GitHub tem internet; o Databricks Free Edition não.
-# sitemap -> JSON -> Volume raw/catalog/ -> dispara o job (treino + inferência).
+# Todo dia às 06:00 (Brasília): baixa o sitemap, envia para o Volume e roda o Job.
+# Fica no GitHub porque o Databricks Free Edition não acessa a internet.
 name: ingest
 
 on:
   schedule:
-    - cron: "0 9 * * *"   # 06:00 em Brasília (UTC-3)
-  workflow_dispatch:
-    inputs:
-      run_pipeline:
-        description: "Disparar o job de treino depois da ingestão?"
-        type: boolean
-        default: true
-
-concurrency:
-  group: ingest
-  cancel-in-progress: false
+    - cron: "0 9 * * *"     # 09:00 UTC = 06:00 em Brasília
+  workflow_dispatch:         # botão "Run workflow" para rodar na hora
 
 jobs:
   ingest:
@@ -23,29 +14,8 @@ jobs:
     env:
       DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-      CATALOG: ${{ vars.DATABRICKS_CATALOG || 'workspace' }}
-      SCHEMA: ${{ vars.DATABRICKS_SCHEMA || 'news_recsys' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: pip install -e .
-      - name: Baixar o sitemap
-        run: |
-          FILE="catalog_$(date -u +%Y%m%d_%H%M).json"
-          echo "FILE=$FILE" >> "$GITHUB_ENV"
-          python -m scripts.fetch_sitemap --out "data/raw/$FILE"
       - uses: databricks/setup-cli@main
-      - name: Garantir schema e Volume (idempotente)
-        run: |
-          databricks schemas create "$SCHEMA" "$CATALOG" 2>/dev/null || echo "schema já existe"
-          databricks volumes create "$CATALOG" "$SCHEMA" raw MANAGED 2>/dev/null || echo "volume já existe"
-      - name: Enviar para o Volume
-        run: |
-          databricks fs mkdirs "dbfs:/Volumes/$CATALOG/$SCHEMA/raw/catalog"
-          databricks fs cp "data/raw/$FILE" "dbfs:/Volumes/$CATALOG/$SCHEMA/raw/catalog/$FILE" --overwrite
-      - name: Disparar o pipeline de treino
-        if: github.event_name == 'schedule' || inputs.run_pipeline
-        run: databricks bundle run recsys_pipeline -t prod --no-wait
+      - run: make sitemap SCHEMA=news_recsys
+      - run: databricks bundle run recsys -t prod

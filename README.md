@@ -2,133 +2,81 @@
 
 **FIAP Pós-Tech · Fase 5 — MLOps · projeto de aula**
 
-Um recomendador **personalizado** de notícias treinado, versionado e servido no
-**Databricks Free Edition**, com **CI/CD no GitHub Actions**, **GitHub como código
-(Terraform)** e um app **Streamlit** publicado no **Streamlit Community Cloud**.
+Um recomendador de notícias que **se re-treina sozinho todo dia** e só troca o modelo em
+produção quando o novo é melhor.
 
-- Matérias **reais**: sitemap de notícias do O Globo (só metadados; o app linka para o site).
-- Usuários e cliques **sintéticos**: 8 personas, reproduzíveis por `seed` (não há clickstream público).
-- 5 famílias de modelo comparadas no MLflow: **popularidade** (baseline), **item-item CF**, **SVD**,
-  **conteúdo (TF-IDF)** e **híbrido** (CF + conteúdo), que resolve o *cold start* de matéria nova.
+- **Dados:** matérias **reais** do sitemap do O Globo + leitores e cliques **sintéticos**.
+- **Modelos:** popularidade (baseline) × item-CF × **híbrido** (recomenda até matéria nova).
+- **MLOps:** MLflow, Unity Catalog (`@champion`), quality gate, Job agendado, monitoramento.
+- **Entrega:** app Streamlit + CI/CD no GitHub Actions + GitHub configurado com Terraform.
 
-  | Candidato (local, 07/10/2026) | NDCG@10 | HitRate@10 | HitRate@10 em matérias frias |
-  |---|---|---|---|
-  | **híbrido α=0,4 (campeão)** | **0,212** | 0,68 | 0,20 |
-  | conteúdo (TF-IDF) | 0,155 | 0,59 | 0,39 |
-  | item-item CF | 0,139 | 0,56 | 0,00 |
-  | SVD (16 fatores) | 0,125 | 0,49 | 0,00 |
-  | popularidade | 0,035 | 0,16 | 0,00 |
-- *Quality gate* champion/challenger → alias `@champion` no Unity Catalog → **inferência batch** → app.
-
-```
-GitHub Actions ──(cron)──► sitemap ──► Volume ──► Job Databricks (6 tasks) ──► gold_user_recommendations
-     │  ci: ruff/pytest/bundle validate                  │ MLflow + Unity Catalog            │
-     │  cd: bundle deploy -t prod                        └─► @champion                       ▼
-     └─ Terraform: repo, secrets, environment, proteção da main            App Streamlit (Community Cloud)
+```mermaid
+flowchart LR
+    GH["GitHub Actions<br/>06:00"] -- "1 · sitemap" --> V[("Volume")]
+    V --> N1["01_dados"] --> N2["02_treino<br/>MLflow + gate"] --> N3["03_recomendacoes"]
+    N2 -- "@champion" --> UC[("Unity Catalog")]
+    N3 --> G[("gold_recommendations")] --> APP["App Streamlit"]
 ```
 
-## Stack
+Detalhes e mais diagramas: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
-| Camada | Ferramenta | Onde |
-|---|---|---|
-| Ingestão | `scripts/fetch_sitemap.py` | GitHub Actions (`ingest.yml`, diário) |
-| Dados | Delta Lake + Unity Catalog (bronze/silver/gold) + Volume | Databricks |
-| Treino | scikit-learn/scipy + **MLflow** (runs aninhadas) | Databricks (serverless) |
-| Registro | **Unity Catalog Models** + alias `@champion` + quality gate | Databricks |
-| Inferência | batch → `gold_user_recommendations` | Databricks (Job) |
-| Orquestração / IaC do projeto | **Databricks Asset Bundles** (`databricks.yml`) | Databricks |
-| CI/CD | **GitHub Actions** (`ci.yml`, `cd.yml`, `ingest.yml`) | GitHub |
-| IaC do GitHub | **Terraform** (`integrations/github`) | `infra/github` |
-| App | **Streamlit** + `databricks-sql-connector` (fallback: `sample_data`) | Streamlit Community Cloud |
+## O que tem aqui
 
-## Estrutura
+| Pasta / arquivo | Para quê |
+|---|---|
+| `notebooks/01_dados.ipynb` | sitemap → matérias (`bronze_articles`) + cliques sintéticos (`silver_*`) |
+| `notebooks/02_treino.ipynb` | 3 modelos, MLflow, registro no Unity Catalog e quality gate |
+| `notebooks/03_recomendacoes.ipynb` | top-10 de cada leitor (`gold_recommendations`) + monitoramento |
+| `databricks.yml`, `resources/job.yml` | o Job (3 tasks) descrito em código (Asset Bundle) |
+| `app/streamlit_app.py` | o app (lê a tabela gold; sem conexão, usa `app/sample_data`) |
+| `.github/workflows/` | `ci.yml` (lint + validação), `cd.yml` (deploy), `ingest.yml` (cron diário) |
+| `infra/github/` | Terraform: repositório, secrets e proteção da `main` |
+| `docs/` | arquitetura, guia do professor, roteiro da aula |
 
-```
-src/news_recsys/        código de produção (testado, sem SDKs no import)
-  ingestion/            sitemap.py, catalog.py
-  features/sections.py  editoria a partir da URL
-  simulation.py         personas e cliques sintéticos
-  models/               base.py, popularity.py, item_cf.py, svd.py, content.py, hybrid.py
-  evaluation/           split.py (temporal), metrics.py (P/R/NDCG/Hit@K)
-  training.py           treina e compara candidatos
-  registry.py           quality gate + alias @champion
-  monitoring.py         cobertura, PSI de editorias
-  pyfunc_model.py       wrapper MLflow (o artefato registrado)
-notebooks/              00–06: a aula (exportados com outputs)
-scripts/                fetch_sitemap, train_local, build/validate_notebooks, nb/ (fontes)
-app/                    streamlit_app.py, data_access.py, sample_data/
-databricks.yml, resources/   Asset Bundle (job de 6 tasks, targets dev/prod)
-.github/workflows/      ci.yml, cd.yml, ingest.yml
-infra/github/           Terraform do repositório
-docs/                   GUIA_DO_PROFESSOR.md, ROTEIRO_AULA.md, ARCHITECTURE.md, ARQUITETURA_MERMAID.md
-```
+Todo o código do modelo está **dentro dos notebooks** — é o que se apresenta em aula.
 
 ## Instalação (macOS, Linux e Windows)
 
-O mesmo caminho para os três sistemas: **terminal + `make`**. No Windows, use o **WSL2** (a
-própria Databricks recomenda) — dentro dele tudo funciona igual ao Linux.
-
 | Sistema | Antes de começar |
 |---|---|
-| **macOS** | `xcode-select --install` (traz `make`, `git`, `curl`) |
-| **Linux (Ubuntu/Debian)** | `sudo apt install -y python3 python3-venv make curl unzip git jq` |
-| **Windows** | PowerShell **como administrador**: `wsl --install -d Ubuntu-24.04` → reinicie → abra o *Ubuntu* e siga a linha do Linux. Clone o projeto **dentro** do WSL (`~/`), não em `/mnt/c/`. |
-
-Depois, em qualquer sistema:
+| macOS | `xcode-select --install` |
+| Linux (Ubuntu/Debian) | `sudo apt install -y python3 python3-venv make curl unzip git jq` |
+| Windows | PowerShell como administrador: `wsl --install -d Ubuntu-24.04`, depois use o terminal do Ubuntu |
 
 ```bash
-make doctor        # confere python 3.12+, make, curl, unzip, git, databricks (+ jq, terraform, gh) e diz como instalar o que faltar
-make db-install    # Databricks CLI pelo script oficial (o mesmo que o GitHub Actions usa)
-make install       # venv + dependências
+make doctor        # confere o que está instalado
+make db-install    # Databricks CLI (script oficial)
+make install       # Python local para lint e app
 ```
 
-`make db-install` executa
-`curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh`. Para
-ler o script antes de rodar: `curl -fsSL <url> | less`. Se aparecer erro de permissão em
-`/usr/local/bin`, rode `sudo make db-install`. Se a CLI já estiver instalada (por exemplo via
-Homebrew), o target só mostra a versão.
-
-> **Sem WSL no Windows?** Instale a CLI com `winget install Databricks.DatabricksCLI` e rode os
-> comandos manualmente — cada target do `Makefile` é um comando curto, legível no próprio arquivo.
-
-## Rodar localmente (sem Databricks)
+## Rodando
 
 ```bash
-make install
-make test lint
-make fetch-sitemap      # atualiza data/articles_snapshot.json
-make train-local        # simula, treina os 3 modelos, imprime métricas e gera app/sample_data
-make app                # http://localhost:8501 (modo amostra)
+make db-configure  # 1x: URL do workspace + token (Settings → Developer → Access tokens)
+make setup         # cria schema e Volume e envia o sitemap de exemplo
+make deploy        # publica notebooks + Job
+make run           # roda o Job: dados → treino → recomendações
+make app           # abre o app em http://localhost:8501
 ```
 
-## Passo a passo completo
+`make sitemap` envia o sitemap do dia; `make export-notebooks` traz os notebooks executados
+(com resultados) para a pasta `notebooks/`.
 
-O roteiro detalhado, com prints de onde clicar, está em
-[`docs/GUIA_DO_PROFESSOR.md`](docs/GUIA_DO_PROFESSOR.md). Resumo:
+## Publicando (GitHub + Streamlit Cloud)
 
-1. **Databricks:** gere um PAT (Settings → Developer → Access tokens), rode `make db-configure`,
-   `make bundle-deploy` e depois `make bundle-run` (ou rode os notebooks 00→06 na UI).
-2. **GitHub (Terraform):**
-   ```bash
-   cp infra/github/terraform.tfvars.example infra/github/terraform.tfvars   # edite
-   export TF_VAR_databricks_token="dapi..."
-   make tf-init tf-plan tf-apply
-   git remote add origin git@github.com:<owner>/news-recsys-databricks.git && git push -u origin main
-   # depois: enable_branch_protection = true no tfvars -> make tf-plan tf-apply
-   ```
-3. **Streamlit Community Cloud:** share.streamlit.io → *Create app* → repositório / `main` /
+1. **GitHub com Terraform:** copie `infra/github/terraform.tfvars.example` para
+   `terraform.tfvars`, faça `export TF_VAR_databricks_token=dapi...` e rode
+   `make tf-init tf-plan tf-apply`. Depois `git push` para o repositório criado.
+2. **Streamlit Cloud:** share.streamlit.io → *Create app* → este repositório, `main`,
    `app/streamlit_app.py` → *Advanced settings* → cole os secrets de
-   `app/.streamlit/secrets.toml.example` (host, `http_path` do SQL warehouse, token, `schema = "news_recsys"`).
+   `app/.streamlit/secrets.toml.example` (com `schema = "news_recsys"`).
 
 ## Custos
 
-R$ 0: Databricks Free Edition (uso não comercial), GitHub Actions (repo público),
-Streamlit Community Cloud (app público).
+R$ 0: Databricks Free Edition, GitHub Actions (repo público) e Streamlit Community Cloud.
 
-## Pontos de atenção
+## Limitações conhecidas
 
-- **State do Terraform contém o token do Databricks em texto puro** → fica local e gitignored.
-- **PAT expira** → renovar em: secrets do GitHub (`make tf-apply`) e secrets do Streamlit.
-- **Cold start de usuário** (sem histórico) → popularidade com recência; de **matéria** → conteúdo/híbrido.
-- Os **cliques são sintéticos**: as métricas medem o quanto o modelo recupera o padrão simulado,
-  não o comportamento real de leitores.
+- Os cliques são **sintéticos**: as métricas medem o padrão das personas, não leitores reais.
+- O state do Terraform guarda o token do Databricks em texto puro (fica local, fora do git).
+- O token do Databricks expira: renove no GitHub (`make tf-apply`) e no Streamlit Cloud.

@@ -1,19 +1,12 @@
-# CD: todo merge na main publica o bundle (job + notebooks + src) no target prod.
-# O Streamlit Community Cloud se re-publica sozinho a cada push na main.
+# CD: merge na main publica o Job no target prod. (O Streamlit Cloud se atualiza sozinho.)
 name: cd
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-
-concurrency:
-  group: cd-prod
-  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: deploy-prod
     runs-on: ubuntu-latest
     environment: prod
     env:
@@ -22,9 +15,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@main
-      - name: databricks bundle validate
-        run: databricks bundle validate -t prod
-      - name: databricks bundle deploy
-        run: databricks bundle deploy -t prod
-      - name: Resumo
-        run: databricks bundle summary -t prod
+      - run: databricks bundle deploy -t prod

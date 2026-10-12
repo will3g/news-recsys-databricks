@@ -1,5 +1,0 @@
-# Instalado na 1ª célula dos notebooks: %pip install -q -r ../requirements-databricks.txt
-# numpy/pandas/scipy/scikit-learn/matplotlib já existem no serverless.
-mlflow[databricks]>=3.1.0
-databricks-sdk>=0.40.0
-pydantic-settings>=2.6.0
