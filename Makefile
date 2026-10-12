@@ -67,8 +67,9 @@ app: ## Roda o app Streamlit (sem secrets usa app/sample_data)
 	.venv/bin/streamlit run app/streamlit_app.py
 
 # ---- GitHub: preparação manual, uma vez (a esteira não cria as próprias credenciais) ----
-gh-repo: ## 1) Cria o repositório público e aponta o remote origin
+gh-repo: ## 1) Cria o repositório público, aponta o remote origin e habilita o Actions
 	gh repo create $(GH_REPO) --public --source . --remote origin
+	gh api -X PUT repos/$(GH_REPO)/actions/permissions -F enabled=true -f allowed_actions=all
 
 gh-secrets: ## 2) Secrets do Actions: Databricks (do ~/.databrickscfg) + PAT do GitHub (pede para colar)
 	databricks auth env | jq -r .env.DATABRICKS_HOST | gh secret set DATABRICKS_HOST -R $(GH_REPO)
