@@ -7,6 +7,7 @@ name: cd
 on:
   push:
     branches: [develop, main]
+  workflow_dispatch:         # make gh-push / botão "Run workflow" (develop = QA, main = PROD)
 
 concurrency: cd-${{ github.ref_name }}   # um deploy por vez em cada ambiente
 

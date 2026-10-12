@@ -75,8 +75,11 @@ gh-secrets: ## 2) Secrets do Actions: Databricks (do ~/.databrickscfg) + PAT do 
 	databricks auth env | jq -r .env.DATABRICKS_TOKEN | gh secret set DATABRICKS_TOKEN -R $(GH_REPO)
 	gh secret set TF_GITHUB_TOKEN -R $(GH_REPO)
 
-gh-push: ## 3) Envia main e develop: a esteira assume (infra, Databricks, Streamlit)
+gh-push: ## 3) Envia main e develop e dispara a esteira (QA e PROD)
 	git push -u origin main develop
+	sleep 10
+	gh workflow run cd --ref develop -R $(GH_REPO)
+	gh workflow run cd --ref main -R $(GH_REPO)
 
 gh-destroy: ## Apaga o repositório no GitHub e o state do Terraform (para recriar do zero)
 	@printf "Apagar o repositório $(GH_REPO) e o state do Terraform? [s/N] " && read r && [ "$$r" = s ]
