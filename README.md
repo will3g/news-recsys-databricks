@@ -107,7 +107,7 @@ Para **recriar do zero** (ensaios): `make gh-destroy` (apaga o repositório e o 
 `app/streamlit_app.py`:
 
 - branch `develop`, URL `<seu-usuário>-news-recsys-homolog` (o Streamlit não aceita "qa"), secrets com `schema = "news_recsys_qa"`
-- branch `main`, URL `<seu-usuário>-news-recsys-prod`, secrets com `schema = "news_recsys_prod"`
+- branch `main`, URL `<seu-usuário>-news-recsys` (nem "prod" é aceito), secrets com `schema = "news_recsys_prod"`
 
 (secrets: modelo em `app/.streamlit/secrets.toml.example`). O Streamlit Cloud não tem API de
 deploy: cada app se atualiza sozinha a cada push na sua branch; o job `streamlit` só confere.
