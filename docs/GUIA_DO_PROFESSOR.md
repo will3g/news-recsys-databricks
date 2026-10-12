@@ -113,6 +113,7 @@ puder usar WSL: `winget install Databricks.DatabricksCLI` e comandos manuais (RE
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | `Error: default auth: cannot configure default credentials` | CLI sem token | `make db-configure` |
+| `PipError ... 403 Forbidden ... Server Side Encryption` na 1ª célula | `%pip` no Job serverless (falha ao salvar o snapshot do ambiente) | já tratado: a célula 1 só instala se faltar pacote; o Job usa o `environments` do bundle |
 | `make: command not found` (Windows) | rodando no PowerShell/CMD | abrir o terminal do Ubuntu (WSL) |
 | `Target path ... already exists` na instalação da CLI | CLI já instalada em outro caminho | `databricks --version`; se funcionar, pode seguir |
 | `/usr/local/bin is not writable` | instalação da CLI sem permissão | `sudo make db-install` |

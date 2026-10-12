@@ -39,8 +39,33 @@ def source_cell(rel_path: str, root: Path) -> Any:
 PIP_CELL = code(
     """
     # Célula 1 — dependências (sempre a primeira: o restartPython apaga as variáveis)
-    %pip install -q -r ../requirements-databricks.txt
-    dbutils.library.restartPython()
+    # No Job, o ambiente declarado no bundle (resources/pipeline.job.yml -> environments) já
+    # instalou tudo: não rodamos %pip (no serverless ele falha com 403 ao salvar o snapshot do
+    # ambiente). Uso interativo sem os pacotes: instala e reinicia o Python.
+    from importlib.metadata import PackageNotFoundError, version
+
+
+    def _installed(*names: str) -> tuple[int, ...]:
+        for name in names:
+            try:
+                return tuple(int(p) for p in version(name).split(".")[:2])
+            except (PackageNotFoundError, ValueError):
+                continue
+        return (0,)
+
+
+    REQUIRED = {  # mesmo conteúdo de requirements-databricks.txt
+        "mlflow>=3.1": (("mlflow", "mlflow-skinny"), (3, 1)),
+        "databricks-sdk>=0.40": (("databricks-sdk",), (0, 40)),
+        "pydantic-settings>=2.6": (("pydantic-settings",), (2, 6)),
+    }
+    missing = [req for req, (names, minimum) in REQUIRED.items() if _installed(*names) < minimum]
+    if missing:
+        print("instalando:", missing)
+        get_ipython().run_line_magic("pip", "install -q -r ../requirements-databricks.txt")
+        dbutils.library.restartPython()
+    else:
+        print("dependências já presentes (ambiente do Job/serverless) — %pip não é necessário")
     """
 )
 
