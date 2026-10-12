@@ -106,7 +106,7 @@ Para **recriar do zero** (ensaios): `make gh-destroy` (apaga o repositório e o 
 **Streamlit Cloud (2 apps, pela UI):** share.streamlit.io → *Create app* → este repositório,
 `app/streamlit_app.py`:
 
-- branch `develop`, URL `<seu-usuário>-news-recsys-qa`, secrets com `schema = "news_recsys_qa"`
+- branch `develop`, URL `<seu-usuário>-news-recsys-homolog` (o Streamlit não aceita "qa"), secrets com `schema = "news_recsys_qa"`
 - branch `main`, URL `<seu-usuário>-news-recsys-prod`, secrets com `schema = "news_recsys_prod"`
 
 (secrets: modelo em `app/.streamlit/secrets.toml.example`). O Streamlit Cloud não tem API de

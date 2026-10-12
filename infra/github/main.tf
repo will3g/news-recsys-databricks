@@ -13,13 +13,18 @@ resource "github_repository_environment" "env" {
   environment = each.key
 }
 
-# URL da app do Streamlit Cloud de cada ambiente (o cd.yml confere se ela responde)
+# URL da app do Streamlit Cloud de cada ambiente (o cd.yml confere se ela responde).
+# O Streamlit não aceita "qa" no subdomínio: a app de QA se chama "homolog".
+locals {
+  app_streamlit = { qa = "homolog", prod = "prod" }
+}
+
 resource "github_actions_environment_variable" "streamlit_url" {
   for_each      = github_repository_environment.env
   repository    = data.github_repository.this.name
   environment   = each.value.environment
   variable_name = "STREAMLIT_URL"
-  value         = "https://${var.github_owner}-news-recsys-${each.key}.streamlit.app"
+  value         = "https://${var.github_owner}-news-recsys-${local.app_streamlit[each.key]}.streamlit.app"
 }
 
 # develop e main só recebem PR com CI verde
